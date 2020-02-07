@@ -1,4 +1,4 @@
-'''
+/*
 Elcano Carla Simulator Capstone
 UW Bothell, 2019
 Advisor : Tyler Folsom
@@ -9,7 +9,9 @@ The main purposes of this program are:
     - Route actuation controls from low-level to Carla
     - Route simulated sensor data from Carla to low/high Level
 ** Current implementation relies on order of sending to identify data
-'''
+*/
+
+#define __arm__
 
 #define PULSE_PIN 5
 #define END_MARKER '@'  // char that signifies the end of a block of sensor data
@@ -23,6 +25,7 @@ The main purposes of this program are:
 // Download from github.com/ivanseidel/DueTimer
 //  -Follow instructions on github page to put in Arduino library
 #include "DueTimer.h"
+
 
 // Ensure cyclometer clicked at least once before changing its frequency
 boolean clicked = false;
@@ -50,9 +53,9 @@ String throttle = "0.0\n";
 String brake = "0.0\n";
 String steering = "0.0\n";
 
-'''
-Set pins, prepare serial.
-'''
+
+//Set pins, prepare serial.
+
 void setup() {
   Serial.begin(115200);
   SerialUSB.begin(115200);
@@ -82,12 +85,12 @@ void setup() {
 }
 
 
-'''
+/*
 Each loop does 3 things
   - Reads actuation signals from low level board, updates last seen values.
   - Sends formatted actuation data to PC connected to Carla.
   - Retrieves simulated sensor data from the PC.
-'''
+*/
 void loop() {
   int start = millis();
   receivedData = 0;
@@ -174,9 +177,8 @@ void loop() {
 
 }
 
-'''
-Receives data from the programming port.
-'''
+
+//Receives data from the programming port.
 void recvWithEndMarker() {
   static byte ndx = 0;
   char rc;
@@ -201,9 +203,7 @@ void recvWithEndMarker() {
   }
 }
 
-'''
-Does the appropriate action for each set of data retrieved
-'''
+//Does the appropriate action for each set of data retrieved
 void receiveNewData(char dataType) {
   if (newData == true) {
     // Identify type of data, process/route data appropriately
@@ -231,28 +231,26 @@ void receiveNewData(char dataType) {
   }
 }
 
-'''
-Allows you to set throttle, brake and steering in one call.
-'''
+
+//Allows you to set throttle, brake and steering in one call.
 void setActuation(String t, String s, String b) {
   throttle = t;
   brake = b;
   steering = s;
 }
 
-'''
-Sends the last updated values for throttle, steering, and brakes.
-'''
+
+//Sends the last updated values for throttle, steering, and brakes.
 void sendActuation() {
   Serial.print(throttle);
   Serial.print(steering);
   Serial.print(brake);
 }
 
-'''
-Sends pulse to low level for speed calculation.  Currently on random digital pin.  Has to be
-implemented for corresponding anaolog pin.
-'''
+
+/*Sends pulse to low level for speed calculation.  Currently on random digital pin.  Has to be
+implemented for corresponding anaolog pin.*/
+
 void sendPulse() {
   //noInterrupts();
   digitalWrite(PULSE_PIN, HIGH);
@@ -265,9 +263,8 @@ void sendPulse() {
   //interrupts();
 }
 
-'''
-Blink the on-board LED to test the cyclometer
-'''
+
+//Blink the on-board LED to test the cyclometer
 void Blink() {
   digitalWrite(LED_BUILTIN, digitalRead(LED_BUILTIN) ^ 1);
 }
