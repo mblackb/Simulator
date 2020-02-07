@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 
 '''
 
@@ -29,57 +28,35 @@ BEFORE RUNNING :
 
 '''
 
-# Prepare simulation
-
+#External imports
 import glob
 import os
 import sys
-from data_logger import DataLogger
-
-try:
-    sys.path.append(glob.glob('../carla/dist/carla-*%d.%d-%s.egg' % (
-        sys.version_info.major,
-        sys.version_info.minor,
-        'win-amd64' if os.name == 'nt' else 'linux-x86_64'))[0])
-except IndexError:
-    pass
-
-import carla
-
-sys.path.append('./Sensors')
-
-import nmeaGPS
-import numGPS
-
 import serial
-
 import argparse
 import logging
 import random
 import time
 import math
+from data_logger import DataLogger
+
+#import Carla module from .egg file
+sys.path.append('./Carla/carla-0.9.5.egg')
+import carla
+
+#Import our sensors
+sys.path.append('./Sensors')
+import nmeaGPS
+import numGPS
 
 
-
-vehiclesOpt = ["trike"]
-vehicle = None  # actor ID of the spawned vehicle
-sensorsOptDisp = ["nmeaGPS","rotSensor","numGPS"]
-sensorsOpt = ["nmeagps","rotsensor","numgps"]
-sensors = []
-
-
+#Arguments accepted for the script --host, --port, --safe
 argparser = argparse.ArgumentParser(
     description=__doc__)
 argparser.add_argument(
     '--host',
     metavar='H',
-
-    #************************#
-    # CHANGE IP ADDRESS HERE #
-    #************************#
-    default='69.91.198.58',
-
-
+    default='localhost',
     help='IP of the host server (default: 127.0.0.1)')
 argparser.add_argument(
     '-p', '--port',
@@ -93,31 +70,44 @@ argparser.add_argument(
     help='avoid spawning vehicles prone to accidents')
 args = argparser.parse_args()
 
+
+#Carla vehicle options
+vehiclesOpt = ["trike"]
+vehicle = None  # actor ID of the spawned vehicle
+sensorsOptDisp = ["nmeaGPS","rotSensor","numGPS"]
+sensorsOpt = ["nmeagps","rotsensor","numgps"]
+sensors = []
+
+#Data Logger logging functions
 logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
 
+#Wait for input before attempting to connect
+print("Welcome to the Elcano Project Simulation")
+input("Press enter when prepared to connect to server")
+
+#Attempt to connect to the carla server, timeout after 5 seconds
 client = carla.Client(args.host, args.port)
-client.set_timeout(2.0)
+client.set_timeout(5.0)
 
-
+#Get the world from the server
 world = client.get_world()
-#####################################
-##  Uncomment for HEADLESS MODE    ##
-##      (Disables graphics)        ##
-#####################################
 
+#Enable headless mode
 #settings = world.get_settings()
 #settings.no_rendering_mode = True
 #world.apply_settings(settings)
 
-#######################################
+#Load Carlas blueprint library
+blueprint_library = world.get_blueprint_library()
 
-blueprints = world.get_blueprint_library().filter('vehicle.*')
-
+#Grab all the car blueprints from library
+carBlueprints = world.get_blueprint_library().filter('vehicle.*')
 if args.safe:
-    blueprints = [x for x in blueprints if int(x.get_attribute('number_of_wheels')) == 4]
-    blueprints = [x for x in blueprints if not x.id.endswith('isetta')]
-    blueprints = [x for x in blueprints if not x.id.endswith('carlacola')]
+    carBlueprints = [x for x in carBlueprints if int(x.get_attribute('number_of_wheels')) == 4]
+    carBlueprints = [x for x in carBlueprints if not x.id.endswith('isetta')]
+    carBlueprints = [x for x in carBlueprints if not x.id.endswith('carlacola')]
 
+#Gather possible spawn points
 spawn_points = world.get_map().get_spawn_points()
 number_of_spawn_points = len(spawn_points)
 
@@ -126,14 +116,10 @@ SpawnActor = carla.command.SpawnActor
 SetAutopilot = carla.command.SetAutopilot
 FutureActor = carla.command.FutureActor
 
-#*****************#
-# CHANGE COM HERE #
-#*****************#
+#Set COM port for router communication
 ser = serial.Serial('COM4',baudrate = 115200,timeout=1)
 
-'''
-Provides UI for user to start or quit the simulation.
-'''
+#CLI when starting script
 def main():
     print("Welcome to the Carla Simulator Framework")
     while True:
@@ -147,15 +133,13 @@ def main():
             runSim()    
 
 
-'''
-Spawns trike at random spawnpoint, adds sensors, starts listening and sending data to router board
-'''
+#Spawns trike at random spawnpoint, adds sensors, starts listening and sending data to router board
 def runSim():
     print('sim started')
-    ## SET-UP SIM ##
+    
     # Spawn a trike
     batch = []
-    blueprint = random.choice(blueprints)
+    blueprint = random.choice(carBlueprints)
     if blueprint.has_attribute('color'):
         color = random.choice(blueprint.get_attribute('color').recommended_values)
         blueprint.set_attribute('color', color)
