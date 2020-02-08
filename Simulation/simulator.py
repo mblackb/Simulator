@@ -41,7 +41,7 @@ import math
 from data_logger import DataLogger
 
 #import Carla module from .egg file
-sys.path.append('./Carla/carla-0.9.5.egg')
+sys.path.append('./carla/carla-0.9.5.egg')
 import carla
 
 #Import our sensors
