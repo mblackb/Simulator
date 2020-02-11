@@ -2,11 +2,12 @@
 '''
 
 Elcano Carla Simulator Capstone
-UW Bothell, 2019
+UW Bothell, 2020
 
 Advisor : Tyler Folsom
 
-Team : Team: Zach Gale, Jonah Lim, Matthew Moscola, Francisco Navarro-Diaz
+Team 1 : Zach Gale, Jonah Lim, Matthew Moscola, Francisco Navarro-Diaz
+Team 2 : Colton Sellers, 
 
 simulator.py
 
@@ -33,7 +34,6 @@ import glob
 import os
 import sys
 import serial
-import argparse
 import logging
 import random
 import time
@@ -45,30 +45,11 @@ sys.path.append('./carla/carla-0.9.5.egg')
 import carla
 
 #Import our sensors
-sys.path.append('./Sensors')
-import nmeaGPS
-import numGPS
+#sys.path.append('./Sensors')
+#import nmeaGPS
+#import numGPS
 
 
-#Arguments accepted for the script --host, --port, --safe
-argparser = argparse.ArgumentParser(
-    description=__doc__)
-argparser.add_argument(
-    '--host',
-    metavar='H',
-    default='localhost',
-    help='IP of the host server (default: 127.0.0.1)')
-argparser.add_argument(
-    '-p', '--port',
-    metavar='P',
-    default=2000,
-    type=int,
-    help='TCP port to listen to (default: 2000)')
-argparser.add_argument(
-    '--safe',
-    action='store_true',
-    help='avoid spawning vehicles prone to accidents')
-args = argparser.parse_args()
 
 
 #Carla vehicle options
@@ -153,7 +134,6 @@ def runSim():
             logging.error(response.error)
         else:
             vehicle = response.actor_id
-
 
     # Attach nmeaSensor to trike (speed directly taken from trike actor)
     actor = world.get_actors().find(vehicle)
