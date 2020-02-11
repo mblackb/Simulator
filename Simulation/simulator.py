@@ -21,7 +21,7 @@ The main purposes of this program are:
 Much of the code that prepares the simulation (spawning actors and sensors) can be found in the examples
 that come with the CARLA simulator download.
 
-CARLA open-source simulator can be found here: http://carla.org/
+CARLA open-source simulator can be found here: http://Carla.org/
 
 BEFORE RUNNING : 
 ** Change the default IP address to the address of the PC running Carla.
@@ -40,16 +40,9 @@ import time
 import math
 from data_logger import DataLogger
 
-#import Carla module from .egg file
-sys.path.append('./carla/carla-0.9.5.egg')
-import carla
-
-#Import our sensors
-#sys.path.append('./Sensors')
-#import nmeaGPS
-#import numGPS
-
-
+#import Carla and and Sensors
+import Carla
+import Sensors
 
 
 #Carla vehicle options
@@ -66,8 +59,8 @@ logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
 print("Welcome to the Elcano Project Simulation")
 input("Press enter when prepared to connect to server")
 
-#Attempt to connect to the carla server, timeout after 5 seconds
-client = carla.Client(args.host, args.port)
+#Attempt to connect to the Carla server, timeout after 5 seconds
+client = Carla.Client('localhost', 2000)
 client.set_timeout(5.0)
 
 #Get the world from the server
@@ -93,9 +86,9 @@ spawn_points = world.get_map().get_spawn_points()
 number_of_spawn_points = len(spawn_points)
 
 # @todo cannot import these directly.
-SpawnActor = carla.command.SpawnActor
-SetAutopilot = carla.command.SetAutopilot
-FutureActor = carla.command.FutureActor
+SpawnActor = Carla.command.SpawnActor
+SetAutopilot = Carla.command.SetAutopilot
+FutureActor = Carla.command.FutureActor
 
 #Set COM port for router communication
 ser = serial.Serial('COM4',baudrate = 115200,timeout=1)
@@ -146,7 +139,7 @@ def runSim():
     
     logger = DataLogger(actor)
     blueprint = world.get_blueprint_library().find('sensor.other.gnss')
-    transform = carla.Transform(carla.Location(x=0.8, z=1.7))
+    transform = Carla.Transform(Carla.Location(x=0.8, z=1.7))
     
     nmeaSensor = world.spawn_actor(blueprint,transform,actor)
     sensors.append(nmeaSensor)
@@ -186,7 +179,7 @@ def runSim():
                 s = float(ser.readline().decode('ASCII'))
                 b = float(ser.readline().decode('ASCII'))
                 
-                actor.apply_control(carla.VehicleControl(throttle=t,steer=s,brake=b))
+                actor.apply_control(Carla.VehicleControl(throttle=t,steer=s,brake=b))
 
                 ''' 
                 Finish processing actuation commands here
@@ -229,7 +222,7 @@ def runSim():
     except KeyboardInterrupt:
         print('\ndestroying %d sensors' % len(sensors))
         for x in sensors:
-            carla.command.DestroyActor(x)
+            Carla.command.DestroyActor(x)
         print('\ndestroying vehicle')
         actor.destroy()
         return
