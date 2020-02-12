@@ -75,157 +75,114 @@ world = client.get_world()
 blueprint_library = world.get_blueprint_library()
 
 #Grab all the car blueprints from library
-carBlueprints = world.get_blueprint_library().filter('vehicle.*')
-if args.safe:
-    carBlueprints = [x for x in carBlueprints if int(x.get_attribute('number_of_wheels')) == 4]
-    carBlueprints = [x for x in carBlueprints if not x.id.endswith('isetta')]
-    carBlueprints = [x for x in carBlueprints if not x.id.endswith('carlacola')]
+vehicle = blueprint_library.find('vehicle.bmw.isetta')
 
 #Gather possible spawn points
 spawn_points = world.get_map().get_spawn_points()
 number_of_spawn_points = len(spawn_points)
 
-# @todo cannot import these directly.
-SpawnActor = Carla.command.SpawnActor
-SetAutopilot = Carla.command.SetAutopilot
-FutureActor = Carla.command.FutureActor
-
 #Set COM port for router communication
 ser = serial.Serial('COM4',baudrate = 115200,timeout=1)
 
 #CLI when starting script
-def main():
-    print("Welcome to the Carla Simulator Framework")
+print("Successful connection")     
+
+#Spawns trike at spawn point
+spawn = Carla.Transform(Carla.Location(x=10, y=10, z=40), Carla.Rotation(yaw=180))
+actor = world.spawn_actor(vehicle, spawn)
+
+#Logging Data from the actor
+logger = DataLogger(actor)
+
+
+# Attach nmeaSensor to trike (speed directly taken from trike actor)
+blueprint = world.get_blueprint_library().find('sensor.other.gnss')
+transform = Carla.Transform(Carla.Location(x=0.8, z=1.7))
+nmeaSensor = world.spawn_actor(blueprint,transform,actor)
+sensors.append(nmeaSensor)
+
+
+#speedSensor = world.spawn_actor(blueprint,transform,actor)
+
+### SET SIM VIEWPOINT TO VEHICLE ####
+world.get_spectator().set_transform(actor.get_transform())
+
+try:
+    ser.write('f'.encode('utf-8'))  #Notify Due that system is starting
+    
+    ##### FOR GPS SENSOR USAGE ####
+    logger.setListen()
+    logger.setNmea('Test@')  # Fill private member to avoid error
+    nmeaSensor.listen(lambda data: nmeaGPS.consoleout(data,logger))
+    ##########################
+    
     while True:
-        # print("Current Vehicles:")
-        # print("Current Sensors")        
-        opt = input("Press s to start simulation, q to quit: ")
-        opt = opt.lower()
-        if(opt == "q"):
-            break
-        elif(opt == "s"):
-            runSim()    
+        # Wait for ready queue from due
+        if ser.in_waiting:
+            ### FOR GPS SENSOR USAGE (Set the stop variable to short the listener func) ###
+            logger.setStopListen()
+            #nmeaSensor.stop()
+            ###########
+            
+            ''' 
+            ADD SERIAL READS FOR ACTUATION HERE 
+            
+            Currently just clears an arbitrary char in buffer sent from
+            router Due
+            '''
 
+            ## Receive in order: throttle, steer, brake
+            t = float(ser.readline().decode('ASCII'))
+            s = float(ser.readline().decode('ASCII'))
+            b = float(ser.readline().decode('ASCII'))
+            
+            actor.apply_control(Carla.VehicleControl(throttle=t,steer=s,brake=b))
 
-#Spawns trike at random spawnpoint, adds sensors, starts listening and sending data to router board
-def runSim():
-    print('sim started')
-    
-    # Spawn a trike
-    batch = []
-    blueprint = random.choice(carBlueprints)
-    if blueprint.has_attribute('color'):
-        color = random.choice(blueprint.get_attribute('color').recommended_values)
-        blueprint.set_attribute('color', color)
-    blueprint.set_attribute('role_name', 'autopilot')
+            ''' 
+            Finish processing actuation commands here
+            
+            Here's how data is sent from Due:
+            - Throttle : float (-1 to 1)
+            - Steering : float (-1 to 1)
+            - Brakes   : float (0 for off 0.3 for on) <- because current implementation of brake
+                is siimply on/off.  Feel free to change on value of 0.3.
+            '''
+            
+            ### ACCESS/SEND LAT/LONG FROM LAST TICK ###
+            ### Can use for location if disabling GPS Sensor
 
-    random.shuffle(spawn_points)
-    batch.append(SpawnActor(blueprint, spawn_points[0]))
+            #geo = world.get_map().transform_to_geolocation(logger.actorId.get_location())
+            #msg = geo.__str__() + '@'
+            #logger.setNmea(msg)
+            ###########
+            
+            ### ACCESS/SEND X/Y/Z FROM LAST TICK  #####
+            ### Can use for location if disabling GPS Sensor
 
-    for response in client.apply_batch_sync(batch):
-        if response.error:
-            logging.error(response.error)
-        else:
-            vehicle = response.actor_id
+            #msg = logger.actorId.get_location().__str__() + '@'
+            #logger.setNmea(msg)
+            ########
+            
+            # Get the speed of Trike
+            getSpeed(logger.actorId, logger)
+            
+            # Send most current data
+            # ORDER MATTERS FOR ARDUINO CODE
+            logger.sendCyclometer(ser)
+            logger.sendNmea(ser)
+            
+            ### FOR SENSOR USAGE ###
+            logger.setListen()
+            #nmeaSensor.listen(lambda data: nmeaGPS.consoleout(data,logger))
+            #############
 
-    # Attach nmeaSensor to trike (speed directly taken from trike actor)
-    actor = world.get_actors().find(vehicle)
-    for x in world.get_actors():
-        if vehicle == x.id:
-            actor = x
-    #print(vehicle)
-    #print(world.get_actors())
-    #next((x for x in world.get_actors() if x.id == vehicle), None)
-    
-    logger = DataLogger(actor)
-    blueprint = world.get_blueprint_library().find('sensor.other.gnss')
-    transform = Carla.Transform(Carla.Location(x=0.8, z=1.7))
-    
-    nmeaSensor = world.spawn_actor(blueprint,transform,actor)
-    sensors.append(nmeaSensor)
-    #speedSensor = world.spawn_actor(blueprint,transform,actor)
-    
-    ### SET SIM VIEWPOINT TO VEHICLE ####
-    world.get_spectator().set_transform(actor.get_transform())
-    #################
-    
-    ## RUN SIM ##
-    try:
-        ser.write('f'.encode('utf-8'))  #Notify Due that system is starting
-        
-        ##### FOR GPS SENSOR USAGE ####
-        logger.setListen()
-        logger.setNmea('Test@')  # Fill private member to avoid error
-        nmeaSensor.listen(lambda data: nmeaGPS.consoleout(data,logger))
-        ##########################
-        
-        while True:
-            # Wait for ready queue from due
-            if ser.in_waiting:
-                ### FOR GPS SENSOR USAGE (Set the stop variable to short the listener func) ###
-                logger.setStopListen()
-                #nmeaSensor.stop()
-                ###########
-                
-                ''' 
-                ADD SERIAL READS FOR ACTUATION HERE 
-                
-                Currently just clears an arbitrary char in buffer sent from
-                router Due
-                '''
-
-                ## Receive in order: throttle, steer, brake
-                t = float(ser.readline().decode('ASCII'))
-                s = float(ser.readline().decode('ASCII'))
-                b = float(ser.readline().decode('ASCII'))
-                
-                actor.apply_control(Carla.VehicleControl(throttle=t,steer=s,brake=b))
-
-                ''' 
-                Finish processing actuation commands here
-                
-                Here's how data is sent from Due:
-                - Throttle : float (-1 to 1)
-                - Steering : float (-1 to 1)
-                - Brakes   : float (0 for off 0.3 for on) <- because current implementation of brake
-                    is siimply on/off.  Feel free to change on value of 0.3.
-                '''
-                
-                ### ACCESS/SEND LAT/LONG FROM LAST TICK ###
-                ### Can use for location if disabling GPS Sensor
-
-                #geo = world.get_map().transform_to_geolocation(logger.actorId.get_location())
-                #msg = geo.__str__() + '@'
-                #logger.setNmea(msg)
-                ###########
-              
-                ### ACCESS/SEND X/Y/Z FROM LAST TICK  #####
-                ### Can use for location if disabling GPS Sensor
-
-                #msg = logger.actorId.get_location().__str__() + '@'
-                #logger.setNmea(msg)
-                ########
-                
-                # Get the speed of Trike
-                getSpeed(logger.actorId, logger)
-                
-                # Send most current data
-                # ORDER MATTERS FOR ARDUINO CODE
-                logger.sendCyclometer(ser)
-                logger.sendNmea(ser)
-                
-                ### FOR SENSOR USAGE ###
-                logger.setListen()
-                #nmeaSensor.listen(lambda data: nmeaGPS.consoleout(data,logger))
-                #############
-    
-    except KeyboardInterrupt:
-        print('\ndestroying %d sensors' % len(sensors))
-        for x in sensors:
-            Carla.command.DestroyActor(x)
-        print('\ndestroying vehicle')
-        actor.destroy()
-        return
+except KeyboardInterrupt:
+    print('\ndestroying %d sensors' % len(sensors))
+    for x in sensors:
+        Carla.command.DestroyActor(x)
+    print('\ndestroying vehicle')
+    actor.destroy()
+    sys.exit()
     
 '''
 Executes each time CARLA updates sensor data.  Obtains the speed of actor it is attached to.
