@@ -91,6 +91,13 @@ Each loop does 3 things
   - Reads actuation signals from low level board, updates last seen values.
   - Sends formatted actuation data to PC connected to Carla.
   - Retrieves simulated sensor data from the PC.
+
+
+  TODO:
+  -MOVE SENSOR READS TO INTERUPT 
+  -USE LOOP TO WRITE DATA TO CARLA
+  -USE LOOP TO READ DATA TO CARLA 
+  -MOVE CONVERSIONS TO PYTHON CODE
 */
 void loop() {
   int start = millis();
