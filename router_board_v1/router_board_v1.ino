@@ -15,8 +15,8 @@ The main purposes of this program are:
 
 #define PULSE_PIN 5
 #define END_MARKER '@'  // char that signifies the end of a block of sensor data
-#define BRAKE_PIN 6
-#define STEER_PIN 9
+#define BRAKE_PIN 9
+#define STEER_PIN 6
 #define THROTTLE_PIN A1
 
 //SENSORS TO ADD: wheel angle sensor
