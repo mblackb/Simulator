@@ -44,6 +44,25 @@ from data_logger import DataLogger
 import Carla
 import Sensors
 
+def getSpeed(actor, logger):
+    circumference = .39 ##m
+    #actor = next((x for x in world.get_actors() if x.id == vehicles[vIndex][0]), None)
+    velocity = actor.get_velocity()
+    magnitude = math.sqrt(velocity.x*velocity.x + velocity.y*velocity.y+velocity.z*velocity.z) ##m/s
+    if(magnitude < 0.8333): ##random num between .5 and 1.5 when less than 3
+        magnitude = random.uniform(.139, .417)
+    else: ##add random error scaled by inverse of circumfrence
+        magnitude += random.uniform(-.5,.5)*(1/circumference)
+    
+    #change m/s to s/pulse
+    wait = (1 / magnitude) * circumference
+    asString = "{:.3f}".format(wait) + '@'  #  The @ char is used to signify the end of a message
+    
+    logger.setCyclometer(asString)
+    #dueNative.write(asString.encode('utf-8'))
+
+
+
 
 #Carla vehicle options
 vehiclesOpt = ["trike"]
@@ -88,7 +107,7 @@ ser = serial.Serial('COM4',baudrate = 115200,timeout=1)
 print("Successful connection")     
 
 #Spawns trike at spawn point
-spawn = Carla.Transform(Carla.Location(x=10, y=10, z=40), Carla.Rotation(yaw=180))
+spawn = Carla.Transform(Carla.Location(x=15, y=20, z=5), Carla.Rotation(yaw=180))
 actor = world.spawn_actor(vehicle, spawn)
 
 #Logging Data from the actor
@@ -108,12 +127,13 @@ sensors.append(nmeaSensor)
 world.get_spectator().set_transform(actor.get_transform())
 
 try:
+    time.sleep(5)
     ser.write('f'.encode('utf-8'))  #Notify Due that system is starting
     
     ##### FOR GPS SENSOR USAGE ####
     logger.setListen()
     logger.setNmea('Test@')  # Fill private member to avoid error
-    nmeaSensor.listen(lambda data: nmeaGPS.consoleout(data,logger))
+    #nmeaSensor.listen(lambda data: nmeaGPS.consoleout(data,logger))
     ##########################
     
     while True:
@@ -187,22 +207,7 @@ except KeyboardInterrupt:
 '''
 Executes each time CARLA updates sensor data.  Obtains the speed of actor it is attached to.
 '''
-def getSpeed(actor, logger):
-    circumference = .39 ##m
-    #actor = next((x for x in world.get_actors() if x.id == vehicles[vIndex][0]), None)
-    velocity = actor.get_velocity()
-    magnitude = math.sqrt(velocity.x*velocity.x + velocity.y*velocity.y+velocity.z*velocity.z) ##m/s
-    if(magnitude < 0.8333): ##random num between .5 and 1.5 when less than 3
-        magnitude = random.uniform(.139, .417)
-    else: ##add random error scaled by inverse of circumfrence
-        magnitude += random.uniform(-.5,.5)*(1/circumference)
-    
-    #change m/s to s/pulse
-    wait = (1 / magnitude) * circumference
-    asString = "{:.3f}".format(wait) + '@'  #  The @ char is used to signify the end of a message
-    
-    logger.setCyclometer(asString)
-    #dueNative.write(asString.encode('utf-8'))
+
     
 if __name__ == '__main__':
 
