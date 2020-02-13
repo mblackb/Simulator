@@ -15,8 +15,8 @@ The main purposes of this program are:
 
 #define PULSE_PIN 5
 #define END_MARKER '@'  // char that signifies the end of a block of sensor data
-#define BRAKE_PIN 6
-#define STEER_PIN 9
+#define BRAKE_PIN 9
+#define STEER_PIN 6
 #define THROTTLE_PIN A1
 
 //SENSORS TO ADD: wheel angle sensor
@@ -39,9 +39,10 @@ int receivedData = 0;
 
 int loopStart = 0;
 
-// bool inSteering = false;
-// int steeringRead = 0;
-// int steerTime = 0;
+//Steering variable setup
+bool inSteering = false;
+int steeringRead = 0;
+int steerTime = 0;
 
 // For formatting data to be sent to Carla
 String nl = "\n";
@@ -81,7 +82,7 @@ void setup() {
   delay(100);   // Allow time for some data from Carla to be captured
   loopStart = millis();
 
-  //attachInterrupt(STEER_PIN, manageSteering, CHANGE);
+  attachInterrupt(STEER_PIN, manageSteering, CHANGE);
 }
 
 
@@ -90,6 +91,13 @@ Each loop does 3 things
   - Reads actuation signals from low level board, updates last seen values.
   - Sends formatted actuation data to PC connected to Carla.
   - Retrieves simulated sensor data from the PC.
+
+
+  TODO:
+  -MOVE SENSOR READS TO INTERUPT 
+  -USE LOOP TO WRITE DATA TO CARLA
+  -USE LOOP TO READ DATA TO CARLA 
+  -MOVE CONVERSIONS TO PYTHON CODE
 */
 void loop() {
   int start = millis();
@@ -128,20 +136,9 @@ void loop() {
   }
   else brake = "0.0\n";
   //Serial.print(brake);
-  
-  //0 - 1024 Digital Value 10bit **WE THINK**
-  //Implement steering here
-  steering = "0.0\n";
-//  if (steeringRead = pulseIn(STEER_PIN, HIGH)) {
-//      steeringRead = map(steeringRead, 1000, 1850, 0,18);
-//      if (steeringRead < 0) {
-//        if (steeringRead < -9) steeringRead = -9;  
-//      }
-//      steering = deci + steeringRead + nl;
-//  }
-//  else {
-//    steering = "0.0\n";
-//  }
+
+
+
 
 
   ///////////////////////////////////////
@@ -267,4 +264,18 @@ void sendPulse() {
 //Blink the on-board LED to test the cyclometer
 void Blink() {
   digitalWrite(LED_BUILTIN, digitalRead(LED_BUILTIN) ^ 1);
+}
+
+//0 - 1024 Digital Value 10bit **WE THINK**
+//Steering ISR, is called by interrupt by steering signal
+void manageSteering() {
+  steeringRead = pulseIn(STEER_PIN, HIGH);
+  steeringRead = map(steeringRead, 1000, 1850, 0,18);
+
+  if (steeringRead < 0) {
+    if (steeringRead < -9) steeringRead = -9;  
+  }
+
+  steering = posdeci + steeringRead + nl;
+
 }
