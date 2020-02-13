@@ -1,7 +1,7 @@
-'''
-Repeatedly sends a single message to the CAN transceiver.
-Heavily borrows from https://copperhilltech.com/blog/app-note-arduino-due-2channel-can-bus-driver-software/
-'''
+
+//Repeatedly sends a single message to the CAN transceiver.
+//Heavily borrows from https://copperhilltech.com/blog/app-note-arduino-due-2channel-can-bus-driver-software/
+
 
 #include "DueCANLayer.h"
 
@@ -30,10 +30,12 @@ void loop()
   //---------------------------------------------- //
   // CHANGE THIS TO TEST DIFFERENT CAN MESSAGES   //
   /////////////////////////////////////////////////
-  byte cTxData[] = {0x00, 0xFF, 0x00, 0x00, 0xFF, 0xEB, 0x00, 0x00};
+  byte cTxData[] = {0x05, 0x00, 0x00, 0x00, 0x05, 0x00, 0x00, 0x00};
   /////////////////////////////////////////////////////////////////
   int nTimer = 0;
   
+  //byte testdata = 0;
+  //byte testdata2 = 0;
   while(1)  // Endless loop
   {
     delay(1);
@@ -41,6 +43,12 @@ void loop()
     // Send the message every 1000 milliseconds
     if(++nTimer == 1000)
     {
+      //cTxData[5] = testdata++;
+      //if (testdata == 0)
+      //{
+      //  testdata2++;
+      //  cTxData[4] = testdata2;
+      //}
       if(canTx(0, 0x350, true, cTxData, 8) == CAN_OK)
         Serial.print("Data sent successfully.\n\r");
       else
