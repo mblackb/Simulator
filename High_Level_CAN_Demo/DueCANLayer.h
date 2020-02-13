@@ -1,6 +1,6 @@
-'''
-Taken from https://copperhilltech.com/blog/app-note-arduino-due-2channel-can-bus-driver-software/
-'''
+
+//Taken from https://copperhilltech.com/blog/app-note-arduino-due-2channel-can-bus-driver-software/
+
 
 #ifndef _DUECANLAYER_
 #define _DUECANLAYER_

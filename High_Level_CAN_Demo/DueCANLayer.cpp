@@ -1,6 +1,6 @@
-'''
-Taken from https://copperhilltech.com/blog/app-note-arduino-due-2channel-can-bus-driver-software/
-'''
+
+//Taken from https://copperhilltech.com/blog/app-note-arduino-due-2channel-can-bus-driver-software/
+
 
 // ------------------------------------------------------------------------
 // Due CAN Layer - Created for easier interfacing
