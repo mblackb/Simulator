@@ -269,6 +269,7 @@ void Blink() {
 //0 - 1024 Digital Value 10bit **WE THINK**
 //Steering ISR, is called by interrupt by steering signal
 void manageSteering() {
+  noInterrupts();
   steeringRead = pulseIn(STEER_PIN, HIGH);
   steeringRead = map(steeringRead, 1000, 1850, 0,18);
 
@@ -277,5 +278,5 @@ void manageSteering() {
   }
 
   steering = posdeci + steeringRead + nl;
-
+  interrupts();
 }
