@@ -53,7 +53,7 @@ input("Press enter when prepared to connect to server")
 #Create the vehicle and connect to simulator and routerboard
 trike = Elcano.Vehicle()
 trike.connectToSim()
-#trike.connectToRouter()
+trike.connectToRouter('COM10')
 
 
 
