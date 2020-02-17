@@ -7,7 +7,7 @@ UW Bothell, 2020
 Advisor : Tyler Folsom
 
 Team 1 : Zach Gale, Jonah Lim, Matthew Moscola, Francisco Navarro-Diaz
-Team 2 : Colton Sellers, 
+Team 2 : Colton Sellers, Brandon Thompson
 
 simulator.py
 
@@ -99,6 +99,14 @@ transform = Carla.Transform(Carla.Location(x=0.8, z=1.7))
 nmeaSensor = world.spawn_actor(blueprint,transform,actor)
 sensors.append(nmeaSensor)
 
+# ---------------Attach IMU sensor to trike (taken from trike actor--------------------
+blueprintIMU = world.get_blueprint_library().find('sensor.other.imu')
+# provide the position of the IMU sensor relative to the vehicle
+transformIMU = carla.Transform(carla.Location(x=0.8, z=1.7))
+# makes Carla world spawn sensor and attach it to the vehicle actor
+sensorIMU = world.spawn_actor(blueprintIMU, transformIMU, actor)
+sensors.append(sensorIMU)
+# -------------------------------------------------------------------------------------
 
 #speedSensor = world.spawn_actor(blueprint,transform,actor)
 
