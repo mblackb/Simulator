@@ -18,7 +18,7 @@ class Vehicle:
         #self.pulse
 
     #Initialize connection to simulator and spawn vehicle
-    def connectToSim(self, host = 'localhost', port = 2000, headless = False):
+    def connectToSim(self, host = 'localhost', port = 2000, headless = True):
 
         #Attempt to connect to the Carla server, timeout after 5 seconds
         self.client = Carla.Client(host, port)
@@ -45,7 +45,7 @@ class Vehicle:
             #Enable headless mode
             settings = self.world.get_settings()
             settings.no_rendering_mode = True
-            world.apply_settings(settings)
+            self.world.apply_settings(settings)
 
         self.spawnSensors()
 
@@ -62,7 +62,7 @@ class Vehicle:
     def spawnSensors(self):
 
         #Create and add all desired sensors
-        self.sensors.append(NMEA(self.world, self.actor))
+        self.sensors.append(GNSS(self.world, self.actor))
         self.sensors.append(IMU(self.world, self.actor))
 
     #For destroying the vehicle in simulator
@@ -136,22 +136,41 @@ class Vehicle:
 ############ Will move these sensors into their own import ############
 #Each sensor will likely be sublasses of greater Sensor class
 #Will be able to determine values from carla and send them to router
+#
+#Need to move sensor function from previous implementation to here.
 
-class NMEA:
+class GNSS:
     def __init__(self, world, actor):
 
         # Attach nmeaSensor to trike (speed directly taken from trike actor)
         blueprint = world.get_blueprint_library().find('sensor.other.gnss')
         transform = Carla.Transform(Carla.Location(x=0.8, z=1.7))
         self.sensor = world.spawn_actor(blueprint,transform,actor)
+
+    def updateData(self):
+        self.latitude = self.sensor.latitude
+        self.longitude = self.sensor.longitude
+        self.altitude = self.sensor.altitude
+
+    
         
 class IMU:
     def __init__(self, world, actor):
 
         #Get sensor and spawn it onto the vehicle
-        #Failed to find sensor in test, will look into this
+        #CANT USE THE IMU, NOT UNTIL VERSION 0.9.7
         #blueprint = world.get_blueprint_library().find('sensor.other.imu')
         #transform = Carla.Transform(Carla.Location(x=0.8, z=1.7))
         #self.sensor = world.spawn_actor(blueprint, transform, actor)
 
         self.name = IMU
+
+    def updateData(self):
+        #Do the thing with the data Brandon.
+        #You got this, change values to whatever structure you need for it
+
+        self.accelerometer = 0
+        self.gyroscope = 0
+        self.compass = 0
+
+    
