@@ -43,40 +43,19 @@ from data_logger import DataLogger
 #import Carla and and Sensors
 import Carla
 import Sensors
+import Elcano
 
-def getSpeed(actor, logger):
-    circumference = .39 ##m
-    #actor = next((x for x in world.get_actors() if x.id == vehicles[vIndex][0]), None)
-    velocity = actor.get_velocity()
-    magnitude = math.sqrt(velocity.x*velocity.x + velocity.y*velocity.y+velocity.z*velocity.z) ##m/s
-    if(magnitude < 0.8333): ##random num between .5 and 1.5 when less than 3
-        magnitude = random.uniform(.139, .417)
-    else: ##add random error scaled by inverse of circumfrence
-        magnitude += random.uniform(-.5,.5)*(1/circumference)
-    
-    #change m/s to s/pulse
-    wait = (1 / magnitude) * circumference
-    asString = "{:.3f}".format(wait) + '@'  #  The @ char is used to signify the end of a message
-    
-    logger.setCyclometer(asString)
-    #dueNative.write(asString.encode('utf-8'))
-
-
-
-
-#Carla vehicle options
-vehiclesOpt = ["trike"]
-vehicle = None  # actor ID of the spawned vehicle
-sensorsOptDisp = ["nmeaGPS","rotSensor","numGPS"]
-sensorsOpt = ["nmeagps","rotsensor","numgps"]
-sensors = []
-
-#Data Logger logging functions
-logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
 
 #Wait for input before attempting to connect
 print("Welcome to the Elcano Project Simulation")
 input("Press enter when prepared to connect to server")
+
+#Create the vehicle and spawn in server
+trike = Elcano.Vehicle()
+trike.initialize()
+
+#Data Logger logging functions, not 100% sure how this operates
+logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
 
 #Attempt to connect to the Carla server, timeout after 5 seconds
 client = Carla.Client('localhost', 2000)
