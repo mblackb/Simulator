@@ -38,28 +38,64 @@ import logging
 import random
 import time
 import math
-from data_logger import DataLogger
 
 #import Carla and and Sensors
 import Carla
-import Sensors
 import Elcano
 
 
 #Wait for input before attempting to connect
 print("Welcome to the Elcano Project Simulation")
-input("Press enter when prepared to connect to server")
+#input("Press enter when prepared to connect to server")
 
-#Create the vehicle and connect to simulator and routerboard
+#Create the vehicle and connect to simulator
 trike = Elcano.Vehicle()
 trike.connectToSim()
-trike.connectToRouter('COM10')
 
+#Create command map for simulator from routerboard
+commandMap = {
+    0:
+        trike.updateThrottle,
+    1:
+        trike.updateSteering,
+    2:
+        trike.updateBraking,
+}
+
+#Set COM port for router communication and send a starter message
+routerboard = serial.Serial('COM10', baudrate = 115200, timeout=5)
+time.sleep(1)
+routerboard.write('f'.encode('utf-8')) 
 
 
 try:
+
+    while True:
+            # Wait for ready queue from routerboard
+            if routerboard.in_waiting:
+
+                #depending on the command get the appropriate function and execute it
+                command = commandMap.get(float(routerboard.readline().decode('ASCII')), "nothing")
+                arguement = float(routerboard.readline().decode('ASCII'))
+                command(arguement)
+
+                ''' 
+                ## Receive in order: throttle, steer, brake
+                t = float(routerboard.readline().decode('ASCII'))
+                s = float(routerboard.readline().decode('ASCII'))
+                b = float(routerboard.readline().decode('ASCII'))
+                
+                trike.actor.apply_control(Carla.VehicleControl(throttle=t,steer=s,brake=b))
+                
+                Finish processing actuation commands here
+                
+                Here's how data is sent from Due:
+                - Throttle : float (-1 to 1)
+                - Steering : float (-1 to 1)
+                - Brakes   : float (0 for off 0.3 for on) <- because current implementation of brake
+                    is siimply on/off.  Feel free to change on value of 0.3.
+                '''
     
-    trike.demo()
 
 except KeyboardInterrupt:
     trike.destroy()
