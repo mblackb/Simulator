@@ -1,6 +1,8 @@
-//For testing serial communication between carla and an arduino
-//Using my own personal MEGA for these tests.
-//Shows various calls the arduino can make to the simulator
+/*
+For testing serial communication between carla and an arduino using my own
+personal MEGA for these tests. Shows various calls the arduino can make to the
+simulator
+*/
 
 
 void setup() {
@@ -12,7 +14,7 @@ void setup() {
 }
 
 void loop(){
-    
+
     digitalWrite(13, HIGH);   // turn the LED on (HIGH is the voltage level)
     updateBrake(0);  //Brakes: float (0 for off 0.3 for on)
     updateThrottle(1); // Throttle : float (-1 to 1)

@@ -6,8 +6,8 @@ UW Bothell, 2020
 
 Advisor : Tyler Folsom
 
-Team 1 : Zach Gale, Jonah Lim, Matthew Moscola, Francisco Navarro-Diaz
-Team 2 : Colton Sellers, Brandon Thompson
+Team 2019 : Zach Gale, Jonah Lim, Matthew Moscola, Francisco Navarro-Diaz
+Team 2020 : Colton Sellers, Brandon Thompson
 
 simulator.py
 
@@ -23,9 +23,7 @@ that come with the CARLA simulator download.
 
 CARLA open-source simulator can be found here: http://Carla.org/
 
-BEFORE RUNNING : 
-** Change the default IP address to the address of the PC running Carla.
-** Change COM used (USB port) to the one connected with the router board.
+
 
 '''
 
@@ -37,7 +35,6 @@ import serial
 import logging
 import random
 import time
-import math
 
 #import Carla and and Sensors
 import Carla
@@ -46,11 +43,11 @@ import Elcano
 
 #Wait for input before attempting to connect
 print("Welcome to the Elcano Project Simulation")
-#input("Press enter when prepared to connect to server")
+input("Press enter when prepared to connect to server")
 
 #Create the vehicle and connect to simulator
 trike = Elcano.Vehicle()
-trike.connectToSim()
+trike.connectToSim('localhost', 2000)
 
 #Create command map for simulator from routerboard
 commandMap = {

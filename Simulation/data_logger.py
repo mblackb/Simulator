@@ -1,6 +1,10 @@
 '''
  Holds the most current trike sensor data from Carla to send to Due.
  Sends last updated data when prompted.
+
+ NOT CURRENTLY USED
+ Was apart of the old groups code, not sure if we are gonna use it at all again
+ only keeping until sure.
  '''
 
 import serial

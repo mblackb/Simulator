@@ -1,9 +1,12 @@
-import serial
-import Carla
 import math
+import Carla
 
-#Vehicle class, contans
 class Vehicle:
+    """
+    Vehicle class for simulator, acts as the vehicle object in carla. Contains
+    all the sensors we place on vehicle in the simulator and their data. Will
+    be used to execute commands and give data on vehicle.
+    """
 
     #Constructor for vehicle class
     def __init__(self):
@@ -20,7 +23,15 @@ class Vehicle:
 
     #Initialize connection to simulator and spawn vehicle
     def connectToSim(self, host = 'localhost', port = 2000, headless = False):
+        """
+        Connects the trike to the simulator
 
+        Accepted params:
+        host - string for server location, default localhost
+        port - int for port of server, default 2000
+        headless - boolean for a headless server, default False
+        """
+        
         #Attempt to connect to the Carla server, timeout after 5 seconds
         self.client = Carla.Client(host, port)
         self.client.set_timeout(5.0)
@@ -44,6 +55,7 @@ class Vehicle:
             settings.no_rendering_mode = True
             self.world.apply_settings(settings)
 
+        #spawn the sensors for the vehicle
         self.spawnSensors()
 
     #For spawning all sensors onto vehicle, add sensors here.
