@@ -112,7 +112,7 @@ class GNSS:
 
         #use built in listen function to help update camera, hacky fix for an issue
         #with pinning camera to vehicle
-        self.sensor.listen(lambda data: self.updateCamera(world))
+        #self.sensor.listen(lambda data: self.updateCamera(world))
 
     def updateData(self):
         self.latitude = self.sensor.latitude
