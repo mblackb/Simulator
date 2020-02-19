@@ -72,13 +72,13 @@ class Vehicle:
 
     #For destroying the vehicle in simulator
     def destroy(self):
-        for sensor in sensors:
+        for sensor in self.sensors:
             sensor.destroy()
-        actor.destroy()
+        self.actor.destroy()
         
     def getSpeed(self):
 
-        self.velocity = self.actor.get_velocity()
+        velocity = self.actor.get_velocity()
         self.speed = math.sqrt(velocity.x*velocity.x + velocity.y*velocity.y+velocity.z*velocity.z) 
 
     def updateThrottle(self, t):
