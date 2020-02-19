@@ -15,6 +15,9 @@ class Vehicle:
         self.sensors = []
         self.speed = 0
         self.steeringangle = 0
+        self.throttle = 0
+        self.steering = 0
+        self.braking = 0
 
         #Variables for vehicle
         #Pulled these from old code, not sure use of them.
@@ -79,13 +82,16 @@ class Vehicle:
         self.speed = math.sqrt(velocity.x*velocity.x + velocity.y*velocity.y+velocity.z*velocity.z) 
 
     def updateThrottle(self, t):
-        self.actor.apply_control(Carla.VehicleControl(throttle=t))
+        self.throttle = t
+        self.actor.apply_control(Carla.VehicleControl(throttle=self.throttle,steer=self.steering,brake=self.braking))
 
     def updateSteering(self, s):
-        self.actor.apply_control(Carla.VehicleControl(steer=s))
+        self.steering = s
+        self.actor.apply_control(Carla.VehicleControl(throttle=self.throttle,steer=self.steering,brake=self.braking))
     
     def updateBraking(self, b):
-        self.actor.apply_control(Carla.VehicleControl(brake=b))
+        self.braking = b
+        self.actor.apply_control(Carla.VehicleControl(throttle=self.throttle,steer=self.steering,brake=self.braking))
 
 
         
