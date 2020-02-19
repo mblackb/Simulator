@@ -4,36 +4,77 @@ personal MEGA for these tests. Shows various calls the arduino can make to the
 simulator
 */
 
+boolean lightOn = false;
 
 void setup() {
-
+    
     pinMode(13, OUTPUT);
 
     Serial.begin(115200);
-    digitalWrite(13, HIGH);
+    ToggleLight();
     while(!Serial.available() ){}
-    digitalWrite(13, LOW);
+    ToggleLight();
 }
 
 void loop(){
 
-    //start driving, then turn right after 2 seconds, continue driving
-    digitalWrite(13, HIGH);   // turn the LED on (HIGH is the voltage level)
-    updateThrottle(1); // Throttle : float (-1 to 1)
-    delay(2000);
-    updateSteering(.5); //Steering : float (-1 to 1)
-    digitalWrite(13, LOW);    // turn the LED off by making the voltage LOW
+   RandomDemo();
+
+}
+
+/*
+    Demo Values for Simulator
+    Throttle : float (-1 to 1)
+    Steering : float (-1 to 1)
+    Brakes: float (0 for off 0.3 for on)
+*/
+
+void driveFrontandBack(){
+
+
+    //start driving, then turn right after 5 seconds, continue driving
+    ToggleLight();
+    updateThrottle(1); 
+    ToggleLight();  
+
+    delay(5000);
+
+    ToggleLight();
+    updateThrottle(-1); 
+    ToggleLight();   
+
+    delay(5000);
+}
+
+void RandomDemo(){
+
+    //start driving, then turn right after 5 seconds, continue driving
+    ToggleLight();
+    updateThrottle(.2); 
+    delay(5000);
+    updateSteering(.5); 
+    ToggleLight();    
     
     //Wait 5 seconds and then stop throttle and apply brakes
-    delay(5000);
-    digitalWrite(13, HIGH);   // turn the LED on (HIGH is the voltage level)
+    ToggleLight();
+    digitalWrite(13, HIGH);  
     updateThrottle(0);
-    updateBrake(0.3); //Brakes: float (0 for off 0.3 for on)
-    digitalWrite(13, LOW);    // turn the LED off by making the voltage LOW
+    updateBrake(0.3); 
+    ToggleLight();  
 
     //Wait 5 seconds and start again
     delay(5000);    
+    updateBrake(0);
+}
 
+void ToggleLight(){
+    if (!lightOn){
+        digitalWrite(13, HIGH); 
+    } else {
+        digitalWrite(13, LOW); 
+    }
+
+    lightOn = !lightOn;
 }
 
 void updateThrottle(float value){
