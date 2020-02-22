@@ -77,9 +77,15 @@ class Vehicle:
         self.actor.destroy()
         
     def getSpeed(self):
-
+        #Convert velocity into speed
         velocity = self.actor.get_velocity()
-        self.speed = math.sqrt(velocity.x*velocity.x + velocity.y*velocity.y+velocity.z*velocity.z) 
+        self.speed = math.sqrt(velocity.x*velocity.x + velocity.y*velocity.y+velocity.z*velocity.z)
+        return self.speed
+
+    def getSteeringAngle(self):
+        #Convert steering -1 to 1 to -90 to 90 degrees
+        self.steeringangle = self.steering*90
+        return self.steeringangle
 
     def updateThrottle(self, t):
         self.throttle = t
@@ -166,6 +172,7 @@ class Camera:
 
         # Tell the world to spawn the sensor, don't forget to attach it to your vehicle actor.
         self.sensor = world.spawn_actor(blueprint, transform, attach_to=actor)
+
 
         
     
