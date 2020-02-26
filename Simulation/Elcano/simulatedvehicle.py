@@ -1,7 +1,7 @@
 import math
 import Carla
 
-class Vehicle:
+class SimulatedVehicle:
     """
     Vehicle class for simulator, acts as the vehicle object in carla. Contains
     all the sensors we place on vehicle in the simulator and their data. Will
@@ -92,6 +92,7 @@ class Vehicle:
         self.actor.apply_control(Carla.VehicleControl(throttle=self.throttle,steer=self.steering,brake=self.braking))
 
     def updateSteering(self, s):
+        
         self.steering = s
         self.actor.apply_control(Carla.VehicleControl(throttle=self.throttle,steer=self.steering,brake=self.braking))
     
