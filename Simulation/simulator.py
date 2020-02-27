@@ -23,8 +23,6 @@ that come with the CARLA simulator download.
 
 CARLA open-source simulator can be found here: http://Carla.org/
 
-
-
 '''
 
 #External imports
@@ -62,12 +60,22 @@ commandMap = {
 
 #After initial setup this is the loop that processes commands from routerboard
 try:
-
     while True:
-            # Wait for ready queue from Interface
+
+            #Commands in buffer
             if Interface.serial.in_waiting:
-                command = commandMap.get(list(Interface.serial.read())[0])
+
+                #Get the command function, if it doesn't exist, return failure.
+                command = commandMap.get(list(Interface.serial.read())[0], "Failure")
+
+                #If its a failure, continue go back to while loop.
+                #Will add some logging later to catch these errors in communication.
+                if command == "Failure":
+                    continue
+                
+                #Execute the command
                 command(trike)
+                
 
 except KeyboardInterrupt:
     trike.destroy()
