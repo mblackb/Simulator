@@ -11,7 +11,7 @@ class SimulatedVehicle:
     #Constructor for vehicle class
     def __init__(self):
 
-        #Variables related to simulator
+        #Variables related to simulated vehicle
         self.sensors = []
         self.speed = 0
         self.steeringangle = 0
@@ -19,15 +19,10 @@ class SimulatedVehicle:
         self.steering = 0
         self.braking = 0
 
-        #Variables for vehicle
-        #Pulled these from old code, not sure use of them.
-        #self.stopListen
-        #self.pulse
-
     #Initialize connection to simulator and spawn vehicle
     def connectToSim(self, host = 'localhost', port = 2000, headless = False):
         """
-        Connects the trike to the simulator
+        Connects the trike to the simulator server
 
         Accepted params:
         host - string for server location, default localhost
@@ -73,7 +68,7 @@ class SimulatedVehicle:
     #For destroying the vehicle in simulator
     def destroy(self):
         for sensor in self.sensors:
-            sensor.destroy()
+            sensor.sensor.destroy()
         self.actor.destroy()
         
     def getSpeed(self):
