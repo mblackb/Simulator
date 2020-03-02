@@ -1,10 +1,11 @@
 # Documentation for Elcano Simulator Code
 
-**UW Bothell, 2019**
+**UW Bothell, 2020**
 
 **Advisor :** *Tyler Folsom*
 
-**Team :** *Zach Gale, Jonah Lim, Matthew Moscola, Francisco Navarro-Diaz*
+**Team 2019:** *Zach Gale, Jonah Lim, Matthew Moscola, Francisco Navarro-Diaz*
+**Team 2020:** *Colton Sellers, Brandon Thompson, Mariah Files, Will Black, Launnie*
 
 ## Purpose:
 The following is a generalized list of the desired functionality of the simulator.
@@ -86,18 +87,14 @@ The following is a guide to set up the Elcano simulator.
 - Implement receiver board when board is fully fixed.
 - Incorporate Elcano trike physics to simulated vehicle.
 #### Low Priority
-- Simulate camera sensor.
+
 ## Bugs Within Simulator
-- Occasionally the simulator and router board will desync and the NMEA GPS messages received by the router board will be faulty.  This is usually followed by a crash of simulator.py.  If not, simply press Ctrl^C and restart simulator.py.
-- If simulator.py unexpectedly terminates, the created actors and sensors in Carla will not be properly destroyed.  This usually does not cause problems for the simulation but proper termination in the future would be safer.  For now if it is causing problems simply restart Carla.
-- Carla will never stop outputting sensor data even if asked to stop.  This is a bug with Carla and not in our scope.
-- Most malfunctions can be temporarily fixed by restarting the simulator.py instance.
+
 ## Other Elcano Bugs Found
 - While we were able to fix the code for the low-level CAN interpretation of the throttle and brake commands from high-level CAN messages, the PWM steering response was not fully tested.  We were unable to get the low-level board to output the correct PWM for the sent CAN messages and this needs more testing.
 - The receiver board cannot get CAN to initialize.  Voltage testing confirmed that the CAN components (MCP2515 and MCP 2550) are receiving the correct operating voltages (5v).  Also, multiple CAN libraries besides the suggested Seeed Studio library were tested with no success (SparkFun CAN library was one of the tested libraries).  Possible problem is incompatibility between the 5v CAN components and the 3.3V SAMD21 board.  Another possible problem is design flaw of pcb.
 - Low-level processing of CAN messages for ID 0x350 is faulty.  Bit shifting and produced output do not match the CAN guidelines on the wiki.  This was fixed in the low-level code included in the simulator folder but not pushed to the Elcano Github repository.
 ## To Note:
-- Currently, the order that you output data from the router board to the computer running simulator.py is non-trivial.  Data is interpreted based on the order which it is received.
 - Carla sensor listening was flawed at the time this was made; .stop() would not stop the sensor from executing its attached function at each tick of Carla.  Therefore speed was implemented without the use of sensors, and instead uses a command that accesses the speed only when needed.  This is the suggested method until sensors are fixed.  Certain sensors such as NMEA GPS, however, are only implementable using Carla sensors.  Additional information can be found on Carla Documentation.
 - In PowerShell, in CarlaUE4 path, run Carla as: ***Start-Process CarlaUE4 -ArgumentList “—quality-level=Low”*** to lower gpu load.
 - Headless mode can be enabled for complete removal of graphics rendering, however, visual debugging is extremely useful.
