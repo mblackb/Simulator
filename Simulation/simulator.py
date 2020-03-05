@@ -23,18 +23,10 @@ that come with the CARLA simulator download.
 
 CARLA open-source simulator can be found here: http://Carla.org/
 
-
-
 '''
 
 #External imports
-import glob
-import os
 import sys
-import serial
-import logging
-import random
-import time
 
 #import Carla and and Sensors
 import Carla
@@ -43,56 +35,47 @@ import Elcano
 
 #Wait for input before attempting to connect
 print("Welcome to the Elcano Project Simulation")
-input("Press enter when prepared to connect to server")
+#input("Press enter when prepared to connect to server")
 
-#Create the vehicle and connect to simulator
-trike = Elcano.Vehicle()
+#Create the simulated vehicle and connect to server
+trike = Elcano.SimulatedVehicle()
 trike.connectToSim('localhost', 2000)
 
-#Create command map for simulator from routerboard
+#Create the interface obj and connect to router
+Interface = Elcano.RouterboardInterface()
+Interface.connectToBoard('COM10', baudrate = 115200, timeout=5)
+
+
+#Create command map for incoming commands from routerboard
 commandMap = {
     0:
-        trike.updateThrottle,
+        Interface.actuateThrottle,
     1:
-        trike.updateSteering,
+        Interface.actuateSteering,
     2:
-        trike.updateBraking,
+        Interface.actuateBraking,
+    3:
+        Interface.getAccelerometer,
 }
 
-#Set COM port for router communication and send a starter message
-routerboard = serial.Serial('COM10', baudrate = 115200, timeout=5)
-time.sleep(1)
-routerboard.write('f'.encode('utf-8')) 
-
-
+#After initial setup this is the loop that processes commands from routerboard
 try:
-
     while True:
-            # Wait for ready queue from routerboard
-            if routerboard.in_waiting:
 
-                #depending on the command get the appropriate function and execute it
-                command = commandMap.get(float(routerboard.readline().decode('ASCII')), "nothing")
-                arguement = float(routerboard.readline().decode('ASCII'))
-                command(arguement)
+            #Commands in buffer
+            if Interface.serial.in_waiting:
 
-                ''' 
-                ## Receive in order: throttle, steer, brake
-                t = float(routerboard.readline().decode('ASCII'))
-                s = float(routerboard.readline().decode('ASCII'))
-                b = float(routerboard.readline().decode('ASCII'))
+                #Get the command function, if it doesn't exist, return failure.
+                command = commandMap.get(list(Interface.serial.read())[0], "Failure")
+
+                #If its a failure, continue go back to while loop.
+                #Will add some logging later to catch these errors in communication.
+                if command == "Failure":
+                    continue
                 
-                trike.actor.apply_control(Carla.VehicleControl(throttle=t,steer=s,brake=b))
+                #Execute the command
+                command(trike)
                 
-                Finish processing actuation commands here
-                
-                Here's how data is sent from Due:
-                - Throttle : float (-1 to 1)
-                - Steering : float (-1 to 1)
-                - Brakes   : float (0 for off 0.3 for on) <- because current implementation of brake
-                    is siimply on/off.  Feel free to change on value of 0.3.
-                '''
-    
 
 except KeyboardInterrupt:
     trike.destroy()

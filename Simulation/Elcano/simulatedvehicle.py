@@ -1,7 +1,7 @@
 import math
 import Carla
 
-class Vehicle:
+class SimulatedVehicle:
     """
     Vehicle class for simulator, acts as the vehicle object in carla. Contains
     all the sensors we place on vehicle in the simulator and their data. Will
@@ -11,7 +11,7 @@ class Vehicle:
     #Constructor for vehicle class
     def __init__(self):
 
-        #Variables related to simulator
+        #Variables related to simulated vehicle
         self.sensors = []
         self.speed = 0
         self.steeringangle = 0
@@ -19,15 +19,10 @@ class Vehicle:
         self.steering = 0
         self.braking = 0
 
-        #Variables for vehicle
-        #Pulled these from old code, not sure use of them.
-        #self.stopListen
-        #self.pulse
-
     #Initialize connection to simulator and spawn vehicle
     def connectToSim(self, host = 'localhost', port = 2000, headless = False):
         """
-        Connects the trike to the simulator
+        Connects the trike to the simulator server
 
         Accepted params:
         host - string for server location, default localhost
@@ -73,7 +68,7 @@ class Vehicle:
     #For destroying the vehicle in simulator
     def destroy(self):
         for sensor in self.sensors:
-            sensor.destroy()
+            sensor.sensor.destroy()
         self.actor.destroy()
         
     def getSpeed(self):
@@ -92,6 +87,7 @@ class Vehicle:
         self.actor.apply_control(Carla.VehicleControl(throttle=self.throttle,steer=self.steering,brake=self.braking))
 
     def updateSteering(self, s):
+        
         self.steering = s
         self.actor.apply_control(Carla.VehicleControl(throttle=self.throttle,steer=self.steering,brake=self.braking))
     

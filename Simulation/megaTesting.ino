@@ -23,10 +23,10 @@ void loop(){
 }
 
 /*
-    Demo Values for Simulator
-    Throttle : float (-1 to 1)
-    Steering : float (-1 to 1)
-    Brakes: float (0 for off 0.3 for on)
+    Demo Values for Simulator all 8 bits
+    Throttle : float (0 to 255) 
+    Steering : float (-128 to 127)
+    Brakes: float (0 to 255)
 */
 
 void driveFrontandBack(){
@@ -34,39 +34,43 @@ void driveFrontandBack(){
 
     //start driving, then turn right after 5 seconds, continue driving
     ToggleLight();
-    updateThrottle(1); 
+    updateThrottle(127); 
     ToggleLight();  
 
     delay(5000);
 
     ToggleLight();
-    updateThrottle(-1); 
+
     ToggleLight();   
 
     delay(5000);
 }
 
+
+//Test method for driving the vehicle
 void RandomDemo(){
 
     //start driving, then turn right after 5 seconds, continue driving
     ToggleLight();
-    updateThrottle(.2); 
+    updateThrottle(127); //Half speed
     delay(5000);
-    updateSteering(.5); 
+    updateSteering(60); //Half left
     ToggleLight();    
     
     //Wait 5 seconds and then stop throttle and apply brakes
-    ToggleLight();
-    digitalWrite(13, HIGH);  
+    ToggleLight(); 
     updateThrottle(0);
-    updateBrake(0.3); 
     ToggleLight();  
 
-    //Wait 5 seconds and start again
+    //Wait 5 seconds and turn off the brake and set steering straight
     delay(5000);    
-    updateBrake(0);
+    updateSteering(0);
 }
 
+
+
+
+//Toggle the light on pin 13
 void ToggleLight(){
     if (!lightOn){
         digitalWrite(13, HIGH); 
@@ -77,17 +81,17 @@ void ToggleLight(){
     lightOn = !lightOn;
 }
 
-void updateThrottle(float value){
-    Serial.println(0); //mapped to throttle command in simulator
-    Serial.println(value);
+void updateThrottle(int value){
+    Serial.write(0); //mapped to throttle command in simulator
+    Serial.write(value);
 }
 
-void updateSteering(float value){
-    Serial.println(1); //mapped to steering command in simulator
-    Serial.println(value);
+void updateSteering(int value){
+    Serial.write(1); //mapped to steering command in simulator
+    Serial.write(value);
 }
 
-void updateBrake(float value){
-    Serial.println(2); //mapped to braking command in simulator
-    Serial.println(value);
+void updateBrake(int value){
+    Serial.write(2); //mapped to braking command in simulator
+    Serial.write(value);
 }
