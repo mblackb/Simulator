@@ -132,10 +132,9 @@ class IMU:
     def __init__(self, world, actor):
 
         #Get sensor and spawn it onto the vehicle
-        #CANT USE THE IMU, NOT UNTIL VERSION 0.9.7
-        #blueprint = world.get_blueprint_library().find('sensor.other.imu')
-        #transform = Carla.Transform(Carla.Location(x=0.8, z=1.7))
-        #self.sensor = world.spawn_actor(blueprint, transform, actor)
+        blueprint = world.get_blueprint_library().find('sensor.other.imu')
+        transform = Carla.Transform(Carla.Location(x=0.8, z=1.7))
+        self.sensor = world.spawn_actor(blueprint, transform, actor)
 
         self.name = IMU
 
