@@ -5,7 +5,7 @@
 **Advisor :** *Tyler Folsom*
 
 **Team 2019:** *Zach Gale, Jonah Lim, Matthew Moscola, Francisco Navarro-Diaz*
-**Team 2020:** *Colton Sellers, Brandon Thompson, Mariah Files, Will Black, Launnie*
+**Team 2020:** *Colton Sellers, Brandon Thompson, Mariah Files, Will Song, Launnie*
 
 ## Purpose:
 The following is a generalized list of the desired functionality of the simulator.
