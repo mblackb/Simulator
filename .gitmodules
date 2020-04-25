@@ -1,6 +1,6 @@
 [submodule "Drive-by-wire"]
-	path = Drive-by-wire
+	path = Arduinos/Drive-by-wire
 	url = https://github.com/elcano/Drive-by-wire
 [submodule "HighLevel"]
-	path = HighLevel
+	path = Arduinos/HighLevel
 	url = https://github.com/elcano/HighLevel
