@@ -32,15 +32,18 @@ import sys
 import Carla
 import Elcano
 
-def main(COMPort = 'COM10', IP = 'localhost', Port = 2000):
+def main():
+    #Wait for input before attempting to connect
+    print("Welcome to the Elcano Project Simulation")
+    #input("Press enter when prepared to connect to server")
 
     #Create the simulated vehicle and connect to server
     trike = Elcano.SimulatedVehicle()
-    trike.connectToSim(IP, Port)
+    trike.connectToSim('localhost', 2000)
 
     #Create the interface obj and connect to router
     Interface = Elcano.RouterboardInterface()
-    Interface.connectToBoard(COMPort, baudrate = 115200, timeout=5)
+    Interface.connectToBoard('COM10', baudrate = 115200, timeout=5)
 
 
     #Create command map for incoming commands from routerboard
