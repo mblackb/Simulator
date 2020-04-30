@@ -33,9 +33,6 @@ import Carla
 import Elcano
 
 def main():
-    #Wait for input before attempting to connect
-    print("Welcome to the Elcano Project Simulation")
-    #input("Press enter when prepared to connect to server")
 
     #Create the simulated vehicle and connect to server
     trike = Elcano.SimulatedVehicle()
