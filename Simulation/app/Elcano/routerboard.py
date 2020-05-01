@@ -46,9 +46,9 @@ class RouterboardInterface:
         #Get the argument from the router board and convert into a Carla value
         #Value comes in as a 8 bit unsigned int (0 to 255)
         arg = list(self.serial.read(1))[0]
-        carlaValue = mapValue(arg, 0, 255, -1, 1)
+        carlaValue = mapValue(arg, 0, 255, 0, 1)
 
-        #Braking : float (-1 to 1)
+        #Braking : float (0 to 1)
         simVehicle.updateBraking(carlaValue)
     
 
