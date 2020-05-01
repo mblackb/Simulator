@@ -72,7 +72,7 @@ class Application(tk.Frame):
 
     def startElcanoSim(self):
         COMPort = self.deviceDict[self.portSelected.get()]
-        simulator.main(COMPort, self.IPEntry, self.portEntry)
+        simulator.main(COMPort, self.IPEntry.get(), int(self.portEntry.get()))
     
 
 
