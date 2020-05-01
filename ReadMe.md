@@ -43,18 +43,21 @@ Use git in a shell to clone the repo into a directory using the options below
 OR
 Just download the repo as zip and unpack (Ensure you have the high level and low level code in the arduino dir)
 
- #Option 1, clone, then update submodules (If you don't need the arduino code, just clone)
-  git clone https://github.com/C-SELLERS/Simulator
-  cd .\Simulator\
-  git submodule init
-  git submodule update
+#### Option 1: clone, then update submodules (If you don't need the arduino code, just clone)
+git clone https://github.com/C-SELLERS/Simulator
 
- #Option 2, recursively gets submodules as well
-  git clone https://github.com/C-SELLERS/Simulator --recursive
+cd .\Simulator\
+
+git submodule init
+
+git submodule update
+
+#### Option 2: Get repo and recursively get submodules
+git clone https://github.com/C-SELLERS/Simulator --recursive
 
 
-#### Next make sure you have the following libraries installed for Arduino. (If uploading arduino code)
-This is also available in the HighLevel Repo.
+#### Arduino Preparation (If uploading arduino code)
+Libraries needed are listed below:
 
 - CAN_BUS_SHIELD by Seeed-Studio
   - [https://github.com/Seeed-Studio/CAN_BUS_Shield](https://github.com/Seeed-Studio/CAN_BUS_Shield)
