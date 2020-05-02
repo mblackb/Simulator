@@ -44,7 +44,7 @@ class SimulatedVehicle:
         vehicle = self.blueprint_library.find('vehicle.bmw.isetta')
 
         #Spawns trike at spawn point
-        spawn = Carla.Transform(Carla.Location(x=15, y=20, z=5), Carla.Rotation(yaw=180))
+        spawn = Carla.Transform(Carla.Location(x=34, y=7, z=1), Carla.Rotation(yaw=0))
         self.actor = self.world.spawn_actor(vehicle, spawn)
 
         if(headless):
