@@ -67,7 +67,7 @@ class Application(tk.Frame):
 
             
         else :
-            manual_control.main() #Need to add passing of ip and port
+            manual_control.main(self.IPEntry.get(), int(self.portEntry.get()))
 
 
     def startElcanoSim(self):
