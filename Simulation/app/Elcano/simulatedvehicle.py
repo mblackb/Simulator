@@ -1,5 +1,6 @@
 import math
 import Carla
+import weakref
 
 class SimulatedVehicle:
     """
@@ -107,25 +108,29 @@ class SimulatedVehicle:
 class GNSS:
     def __init__(self, world, actor):
 
+        # Init default values
+        self.sensor = None
+        self.latitude = 0
+        self.longitude = 0
+
         # Attach nmeaSensor to trike (speed directly taken from trike actor)
         blueprint = world.get_blueprint_library().find('sensor.other.gnss')
-        transform = Carla.Transform(Carla.Location(x=0.8, z=1.7))
+        transform = Carla.Transform(Carla.Location(x=1.0, z=2.8))
         self.sensor = world.spawn_actor(blueprint,transform,attach_to=actor)
 
-        #use built in listen function to help update camera, hacky fix for an issue
-        #with pinning camera to vehicle
-        #self.sensor.listen(lambda data: self.updateCamera(world))
+        #To avoid circular ref we are going to use a weak reference.
+        weak_self = weakref.ref(self)
+        self.sensor.listen(lambda event: GnssSensor._on_gnss_event(weak_self, event))
 
-    def updateData(self):
-        self.latitude = self.sensor.latitude
-        self.longitude = self.sensor.longitude
-        self.altitude = self.sensor.altitude
-
-    #hacky fix for keeping camera locked on car will figure something out better.
-    #possibly use pygame for a game hud and display
-    def updateCamera(self, world):
-        world.get_spectator().set_transform(self.sensor.get_transform())
-
+    #Storing the gps info on every update
+    @staticmethod
+    def _on_gnss_event(weak_self, event):
+        self = weak_self()
+        if not self:
+            return
+        self.latitude = event.latitude
+        self.longitude = event.longitude
+        self.altitude = event.altitude
     
         
 class IMU:
