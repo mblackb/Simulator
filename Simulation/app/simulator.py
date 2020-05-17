@@ -68,7 +68,11 @@ def main(COMPort = 'COM10', IP = 'localhost', Port = 2000):
                     
                     #Execute the command
                     command(trike)
-                    
+
+                
+                #Send new data across, maybe limit to once a second?
+                Interface.getGPS(trike)
+                
 
     except KeyboardInterrupt:
         trike.destroy()

@@ -58,6 +58,24 @@ class RouterboardInterface:
         #do anything yet
         self.serial.write(simVehicle.Accelerometer)
 
+    def getGPS(self, simVehicle):
+
+        lat = simVehicle.GPS.latitude
+        lon = simVehicle.GPS.longitude
+
+        #write the messages, need to adapt format.
+        self.serial.write(6)
+        self.serial.write(lat)
+        self.serial.write(lon)
+
+        ##Header byte is 6 for GPS, reference router.h
+        ##LAT, LONG, ALT, HH:MM:SS.sss once a second, maybe a thread?
+        ##lat[9],latdir,long[10],longdir (ddmm.mmmmN/Sdddmm.mmmmE/W) i.e: 4559.4810N12269.3800W
+        ##dd is degrees mm.mmmm is minutes ss is seconds
+
+
+
+        
 
     
 
