@@ -32,10 +32,13 @@ import pygame
 import datetime
 import math
 import os
+import numpy as np
+import weakref
 
 
 #import Carla and and Sensors
 import Carla
+from Carla import ColorConverter as cc
 import Elcano
 
 
@@ -55,42 +58,26 @@ def main(COMPort = 'COM10', host = 'localhost', port = 2000):
     logging.info('listening to server %s:%s', host, port)
 
 
-    #Start pygame and build window and hud
-    pygame.init()
-    pygame.font.init()
-
     try:
-        display = pygame.display.set_mode(
-        (1280, 720),
-        pygame.HWSURFACE | pygame.DOUBLEBUF)
-
-        clock = pygame.time.Clock()
-             
-        hud = HUD(1280,720)
-        world = Client(hud, host, port)
-       
-        #MOVE THIS INTO CLIENT CLASS!!!!!!!!!!!
-        #Create the simulated vehicle and connect to server
-        trike = Elcano.SimulatedVehicle(world.worldObj, hud)
-        world.setVehicle(trike)
+        #Create client object to interact with server
+        client = Client(host, port)
 
         #Define the controller of the vehicle
-        controller = Elcano.RouterboardInterface(COMPort, trike)
+        controller = Elcano.RouterboardInterface(COMPort, client.vehicle)
 
         #Enter the main loop
         while True:
-            clock.tick_busy_loop(60)
+            client.clock.tick_busy_loop(60)
             controller.controlLoop()
-            world.tick(clock)
-            world.render(display)
+            client.tick()
+            client.render()
             pygame.display.flip()
 
 
     finally: 
-        #DELETE WORLD/ VEHICLE AND ALL SENSORS!!!!!
-        if world is not None:
-            trike.destroy()
-
+        #Once we are done, destroy the client
+        if client.world is not None:
+            client.destroy()
 
         pygame.quit()
 
@@ -101,54 +88,57 @@ def main(COMPort = 'COM10', host = 'localhost', port = 2000):
 
 
 class Client(object):
-#TODO::
-#ADD VEHICLE CLASS UNDER THIS 
-#CLEAN AND IMPROVE!!!!
-
     """
-    Meant to represent the connection to the simulated world, all objects that exist in it,
-    as well as our view into that world.
-
     Client owns the display hud and the vehicle
 
     Maybe move camera manager out of vehicle as it isn't used as a sensor rather than just the
     client window.....
     """
 
-    def __init__(self, hud, host, port):
+    def __init__(self, host, port):
+
+        #Start pygame and build window and hud
+        pygame.init()
+        pygame.font.init()
+
+        self.display = pygame.display.set_mode((1280, 720), pygame.HWSURFACE | pygame.DOUBLEBUF)
+        self.clock = pygame.time.Clock()
+        self.hud = HUD(1280,720)
 
         #Attempt to connect to the Carla server, timeout after 5 seconds
         self.client = Carla.Client(host, port)
         self.client.set_timeout(5.0)
 
-        #take in HUD
-        self.hud = hud
-
         #Get the world from the server
-        self.worldObj = self.client.get_world()
-        self.worldObj.on_tick(hud.on_world_tick)
+        self.world = self.client.get_world()
+        self.world.on_tick(self.hud.on_world_tick)
+
+        #Create the vehicle
+        self.vehicle = Elcano.SimulatedVehicle(self.world, self.hud)
+
+        #Create the camera for the client
+        self.camera_manager = CameraManager(self.vehicle, self.world, self.hud, 2.2)
+        self.camera_manager.transform_index = 0
+        self.camera_manager.set_sensor(0, notify=False)
         
+        #Recording variables
         self.recording_enabled = False
         self.recording_start = 0
 
-    def setVehicle(self, vehicle):
-        self.vehicle = vehicle
+    def tick(self):
+        self.hud.tick(self.world, self.vehicle, self.clock)
 
-    def next_weather(self, reverse=False):
-        self._weather_index += -1 if reverse else 1
-        self._weather_index %= len(self._weather_presets)
-        preset = self._weather_presets[self._weather_index]
-        self.hud.notification('Weather: %s' % preset[1])
-        self.player.get_world().set_weather(preset[0])
+    def render(self):
+        self.vehicle.camera_manager.render(self.display)
+        self.hud.render(self.display)
 
+    def destroy(self):
+        """
+        In order to remove everything from the server destroy the camera then the vehicle.
+        """
 
-    def tick(self, clock):
-        self.hud.tick(self.worldObj, self.vehicle, clock)
-
-    def render(self, display):
-        self.vehicle.camera_manager.render(display)
-        self.hud.render(display)
-
+        self.camera_manager.sensor.destroy()
+        self.vehicle.destroy()
 
 
 # ==============================================================================
@@ -333,3 +323,128 @@ class HelpText(object):
     def render(self, display):
         if self._render:
             display.blit(self.surface, self.pos)
+
+
+# ==============================================================================
+# -- CameraManager -------------------------------------------------------------
+# ==============================================================================
+
+
+class CameraManager(object):
+    """
+    Sensor class for collecting camera data from Carla
+    """
+
+    def __init__(self, actor, world, hud, gamma_correction):
+        self.sensor = None
+        self.surface = None
+        self.actor = actor
+        self.hud = hud
+        self.recording = False
+
+        bound_y = 0.5 + self.actor.bounding_box.extent.y
+        Attachment = Carla.AttachmentType
+
+        self._camera_transforms = [
+            (Carla.Transform(Carla.Location(x=-5.5, z=2.5), Carla.Rotation(pitch=8.0)), Attachment.SpringArm),
+            (Carla.Transform(Carla.Location(x=1.6, z=1.7)), Attachment.Rigid),
+            (Carla.Transform(Carla.Location(x=5.5, y=1.5, z=1.5)), Attachment.SpringArm),
+            (Carla.Transform(Carla.Location(x=-8.0, z=6.0), Carla.Rotation(pitch=6.0)), Attachment.SpringArm),
+            (Carla.Transform(Carla.Location(x=-1, y=-bound_y, z=0.5)), Attachment.Rigid)]
+        self.transform_index = 1
+        self.sensors = [
+            ['sensor.camera.rgb', cc.Raw, 'Camera RGB', {}],
+            ['sensor.camera.depth', cc.Raw, 'Camera Depth (Raw)', {}],
+            ['sensor.camera.depth', cc.Depth, 'Camera Depth (Gray Scale)', {}],
+            ['sensor.camera.depth', cc.LogarithmicDepth, 'Camera Depth (Logarithmic Gray Scale)', {}],
+            ['sensor.camera.semantic_segmentation', cc.Raw, 'Camera Semantic Segmentation (Raw)', {}],
+            ['sensor.camera.semantic_segmentation', cc.CityScapesPalette,
+                'Camera Semantic Segmentation (CityScapes Palette)', {}],
+            ['sensor.lidar.ray_cast', None, 'Lidar (Ray-Cast)', {}],
+            ['sensor.camera.rgb', cc.Raw, 'Camera RGB Distorted',
+                {'lens_circle_multiplier': '3.0',
+                'lens_circle_falloff': '3.0',
+                'chromatic_aberration_intensity': '0.5',
+                'chromatic_aberration_offset': '0'}]]
+        bp_library = world.get_blueprint_library()
+
+        for item in self.sensors:
+            bp = bp_library.find(item[0])
+            if item[0].startswith('sensor.camera'):
+                bp.set_attribute('image_size_x', str(hud.dim[0]))
+                bp.set_attribute('image_size_y', str(hud.dim[1]))
+                if bp.has_attribute('gamma'):
+                    bp.set_attribute('gamma', str(gamma_correction))
+                for attr_name, attr_value in item[3].items():
+                    bp.set_attribute(attr_name, attr_value)
+            elif item[0].startswith('sensor.lidar'):
+                bp.set_attribute('range', '50')
+            item.append(bp)
+
+        self.index = None
+
+    def toggle_camera(self):
+        self.transform_index = (self.transform_index + 1) % len(self._camera_transforms)
+        self.set_sensor(self.index, notify=False, force_respawn=True)
+
+    def set_sensor(self, index, notify=True, force_respawn=False):
+        index = index % len(self.sensors)
+        needs_respawn = True if self.index is None else \
+            (force_respawn or (self.sensors[index][2] != self.sensors[self.index][2]))
+        if needs_respawn:
+            if self.sensor is not None:
+                self.sensor.destroy()
+                self.surface = None
+            self.sensor = self.actor.get_world().spawn_actor(
+                self.sensors[index][-1],
+                self._camera_transforms[self.transform_index][0],
+                attach_to=self.actor,
+                attachment_type=self._camera_transforms[self.transform_index][1])
+
+
+            weak_self = weakref.ref(self)
+            self.sensor.listen(lambda image: CameraManager._parse_image(weak_self, image))
+        if notify:
+            self.hud.notification(self.sensors[index][2])
+        self.index = index
+
+    def next_sensor(self):
+        self.set_sensor(self.index + 1)
+
+    def toggle_recording(self):
+        self.recording = not self.recording
+        self.hud.notification('Recording %s' % ('On' if self.recording else 'Off'))
+
+    def render(self, display):
+        if self.surface is not None:
+            display.blit(self.surface, (0, 0))
+
+    @staticmethod
+    def _parse_image(weak_self, image):
+        self = weak_self()
+        if not self:
+            return
+        if self.sensors[self.index][0].startswith('sensor.lidar'):
+            points = np.frombuffer(image.raw_data, dtype=np.dtype('f4'))
+            points = np.reshape(points, (int(points.shape[0] / 3), 3))
+            lidar_data = np.array(points[:, :2])
+            lidar_data *= min(self.hud.dim) / 100.0
+            lidar_data += (0.5 * self.hud.dim[0], 0.5 * self.hud.dim[1])
+            lidar_data = np.fabs(lidar_data)  # pylint: disable=E1111
+            lidar_data = lidar_data.astype(np.int32)
+            lidar_data = np.reshape(lidar_data, (-1, 2))
+            lidar_img_size = (self.hud.dim[0], self.hud.dim[1], 3)
+            lidar_img = np.zeros((lidar_img_size), dtype = int)
+            lidar_img[tuple(lidar_data.T)] = (255, 255, 255)
+            self.surface = pygame.surfarray.make_surface(lidar_img)
+        else:
+            image.convert(self.sensors[self.index][1])
+            array = np.frombuffer(image.raw_data, dtype=np.dtype("uint8"))
+            array = np.reshape(array, (image.height, image.width, 4))
+            array = array[:, :, :3]
+            array = array[:, :, ::-1]
+            self.surface = pygame.surfarray.make_surface(array.swapaxes(0, 1))
+        if self.recording:
+            image.save_to_disk('_out/%08d' % image.frame)
+
+
