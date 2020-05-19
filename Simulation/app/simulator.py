@@ -42,7 +42,7 @@ from Carla import ColorConverter as cc
 import Elcano
 
 
-def main(COMPort = 'COM10', host = 'localhost', port = 2000):
+def main(COMPort = 'COM14', host = 'localhost', port = 2000):
     """
     Take in settings from form or command line, start logging, build client object
     enter control loop
@@ -61,17 +61,18 @@ def main(COMPort = 'COM10', host = 'localhost', port = 2000):
     try:
         #Create client object to interact with server
         client = Client(host, port)
+        client.connectToVehicle()
 
         #Define the controller of the vehicle
+        #Intend to add the option for manual control here later with a given param
         controller = Elcano.RouterboardInterface(COMPort, client.vehicle)
 
         #Enter the main loop
         while True:
             client.clock.tick_busy_loop(60)
-            controller.controlLoop()
-            client.tick()
+            controller.execute()
             client.render()
-            pygame.display.flip()
+
 
 
     finally: 
@@ -79,7 +80,14 @@ def main(COMPort = 'COM10', host = 'localhost', port = 2000):
         if client.world is not None:
             client.destroy()
 
-        pygame.quit()
+        controller.destroy()
+
+        del controller
+        del client
+        
+        
+
+
 
 
 # ==============================================================================
@@ -112,12 +120,16 @@ class Client(object):
         #Get the world from the server
         self.world = self.client.get_world()
         self.world.on_tick(self.hud.on_world_tick)
+        
+
+
+    def connectToVehicle(self):
 
         #Create the vehicle
         self.vehicle = Elcano.SimulatedVehicle(self.world, self.hud)
 
         #Create the camera for the client
-        self.camera_manager = CameraManager(self.vehicle, self.world, self.hud, 2.2)
+        self.camera_manager = CameraManager(self.vehicle.actor, self.world, self.hud, 2.2)
         self.camera_manager.transform_index = 0
         self.camera_manager.set_sensor(0, notify=False)
         
@@ -125,20 +137,33 @@ class Client(object):
         self.recording_enabled = False
         self.recording_start = 0
 
-    def tick(self):
+    def render(self):
+
+        #Update hud with latest values
         self.hud.tick(self.world, self.vehicle, self.clock)
 
-    def render(self):
-        self.vehicle.camera_manager.render(self.display)
+        #Render our camera and hud
+        self.camera_manager.render(self.display)
         self.hud.render(self.display)
+
+        #Update the screen
+        pygame.display.flip()
+
+        #Read events from pygame window
+        for event in pygame.event.get(): 
+            if event.type == pygame.QUIT: pygame.quit()
+
 
     def destroy(self):
         """
         In order to remove everything from the server destroy the camera then the vehicle.
         """
 
-        self.camera_manager.sensor.destroy()
-        self.vehicle.destroy()
+        if(self.camera_manager is not None):
+            self.camera_manager.sensor.destroy()
+
+        if(self.vehicle is not None):
+            self.vehicle.destroy()
 
 
 # ==============================================================================
@@ -448,3 +473,7 @@ class CameraManager(object):
             image.save_to_disk('_out/%08d' % image.frame)
 
 
+#If running the script internally this will just point it to main.
+if __name__ == '__main__':
+
+    main()
