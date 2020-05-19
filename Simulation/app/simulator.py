@@ -39,11 +39,20 @@ import Carla
 import Elcano
 
 
-def main(COMPort = 'COM10', IP = 'localhost', Port = 2000):
+def main(COMPort = 'COM10', host = 'localhost', port = 2000):
+    """
+    Take in settings from form or command line, start logging, build client object
+    enter control loop
+
+    Accepted Params:
+    COMPort
+    host
+    port
+    """
 
     #Set logging level
     logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
-    logging.info('listening to server %s:%s', IP, Port)
+    logging.info('listening to server %s:%s', host, port)
 
 
     #Start pygame and build window and hud
@@ -58,8 +67,9 @@ def main(COMPort = 'COM10', IP = 'localhost', Port = 2000):
         clock = pygame.time.Clock()
              
         hud = HUD(1280,720)
-        world = World(hud, IP, Port)
+        world = Client(hud, host, port)
        
+        #MOVE THIS INTO CLIENT CLASS!!!!!!!!!!!
         #Create the simulated vehicle and connect to server
         trike = Elcano.SimulatedVehicle(world.worldObj, hud)
         world.setVehicle(trike)
@@ -86,14 +96,23 @@ def main(COMPort = 'COM10', IP = 'localhost', Port = 2000):
 
 
 # ==============================================================================
-# -- World ---------------------------------------------------------------------
+# -- Client ---------------------------------------------------------------------
 # ==============================================================================
 
 
-class World(object):
+class Client(object):
+#TODO::
+#ADD VEHICLE CLASS UNDER THIS 
+#CLEAN AND IMPROVE!!!!
+
     """
     Meant to represent the connection to the simulated world, all objects that exist in it,
     as well as our view into that world.
+
+    Client owns the display hud and the vehicle
+
+    Maybe move camera manager out of vehicle as it isn't used as a sensor rather than just the
+    client window.....
     """
 
     def __init__(self, hud, host, port):
