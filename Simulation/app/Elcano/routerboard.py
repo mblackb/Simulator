@@ -1,6 +1,8 @@
 import serial
 import time
 
+
+
 class RouterboardInterface:
     """
     Acts as the interface the routerboard uses to communicate to Carla.
@@ -10,6 +12,7 @@ class RouterboardInterface:
     Accepted params:
     COMPort - the COM port the routerboard is plugged into.
     """
+
 
     def __init__(self, COMPort, simVehicle):
         self.name = "routerboard"
@@ -24,27 +27,15 @@ class RouterboardInterface:
             3: self.getAccelerometer,
         }
 
-        self.connectToBoard(COMPort, baudrate = 115200, timeout=5)
-
-
-    def connectToBoard(self, COMport, baudrate, timeout):
-        """
-        Actually connects to the router board via serial.
-
-        Accepted params:
-        COMPort - the COM port the routerboard is plugged into.
-        baudrate -
-        timeout - Max time it will wait to establish communication over serial.
-        """
-
-        self.serial = serial.Serial(port=COMport, baudrate=baudrate, timeout=timeout)
+        self.serial = serial.Serial(port=COMPort, baudrate=115200, timeout=5)
         time.sleep(1)
         self.serial.write('f'.encode('utf-8')) 
 
 
-    def controlLoop(self):
+    def execute(self):
         """
-        Enters the control loop which will handle the commands and sending of data
+        Controllers execution, checks for message in serial from router to execute
+        also sends data back to router board.
         """
 
         #If there is a command waiting
@@ -65,7 +56,14 @@ class RouterboardInterface:
         #Send new data across, maybe limit to once a second?
         self.getGPS()
 
-    
+
+    def destroy(self):
+        """
+        Destroy the serial communication
+        """
+
+        self.serial.close()
+
     
     def actuateThrottle(self) :
         """
@@ -81,7 +79,6 @@ class RouterboardInterface:
         #Throttle : float (-1 to 1) 
         #No reverse option for now
         self.simVehicle.updateThrottle(arg)
-
 
 
     def actuateSteering(self) :
