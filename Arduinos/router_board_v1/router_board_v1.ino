@@ -13,7 +13,7 @@
   The number of data bytes is determined by the type of data being sent, which is defined by the header byte.
 
   Portions of GPS code based on information found here: https://ucexperiment.wordpress.com/2012/03/12/arduino-scripted-gps-simulator/
-  
+
 */
 
 #include "router.h"
@@ -57,7 +57,9 @@ bool brakeChange = false;
 byte accelDataBuffer[ACCELBYTES];
 byte magDataBuffer[MAGBYTES];
 
-
+// Magnetometer flags
+bool magRegMRead;
+bool magRegMgRead;
 
 // GPS Variables
 char sec[2];
@@ -90,7 +92,7 @@ void setup() {
   sec[0] = '0';
   sec[1] = '\0';
   lat[10] = '\0';
-  latdir[1] = '\0';  
+  latdir[1] = '\0';
   lng[11] = '\0';
   lngdir[1] = '\0';
   hdg[7] = '\0';
@@ -108,13 +110,13 @@ void setup() {
   Timer3.attachInterrupt(sendPulse).start(2000000);
 
   // Setup I2C for accelerometer and Magnetometer
-  // Currently using SDA/SCL for accelerometer and SDA1/SCL1
-  // For Magnetometer. Need to work out how to add
-  // Gyroscope address as a valid slave address.
-  Wire.begin(ACCELADDRESS);
-  Wire.onRequest(accelEvent);
-  Wire1.begin(MAGADDRESS);       // Accelerometer and magnetometer addresses
-  Wire1.onRequest(magEvent);  // register callback function
+  // Currently only Magnetrometer is setup for heading data to high level
+  // Need to develop emulation of multiple slave addresses on single bus.
+  //Wire.begin(ACCELADDRESS);
+  //Wire.onRequest(accelEvent);
+  Wire.begin(MAGADDRESS);       // Accelerometer and magnetometer addresses
+  Wire.onRequest(magEvent);  // register callback function for sending magnetometer data
+  Wire.onReceive(magRegEvent); // Register callback for receiving commands for magnetometer
 
   // Wait until start msg from laptop
   while (SerialUSB.available() <= 0) {}
@@ -131,7 +133,7 @@ void setup() {
 
 /*
   TODO:
- - Setup Magnetometer so it can be read properly
+  - Setup Magnetometer so it can be read properly
 
 */
 void loop() {
@@ -172,7 +174,7 @@ void loop() {
   // Receive data from Carla
   if (SerialUSB.available()) {
     volatile byte *receiveData = receiveFromCarla(1);
-    SerialUSB.println(receiveData[0]);
+    SerialUSB.println(receiveData[0]); //debug
     switch (receiveData[0]) {
       case accelCommand:
         // Get number of bytes associated with Accelerometer data
@@ -206,7 +208,7 @@ void loop() {
         latdir[0] = receiveData[9];
         //longitude
         for (i = 0; i < 10; i++)
-            lng[i] = receiveData[i + 10];
+          lng[i] = receiveData[i + 10];
         lngdir[0] = receiveData[20];
         /* Not currently using speed or heading from GPS
                 //speed
@@ -243,8 +245,20 @@ void loop() {
     }
   }
 
-
-
+//test for seeing loaded magnetometer data
+//static long test=0;
+//
+//if (test%10000==1){
+//SerialUSB.print("Mag Data: ");
+//SerialUSB.print(magDataBuffer[0]);
+//SerialUSB.print(magDataBuffer[1]);
+//SerialUSB.print(magDataBuffer[2]);
+//SerialUSB.print(magDataBuffer[3]);
+//SerialUSB.print(magDataBuffer[4]);
+//SerialUSB.println(magDataBuffer[5]);
+//}
+//
+//test++;
 
 }
 
@@ -449,13 +463,45 @@ void manageBrake () {
   brakeChange = true;
 }
 
+/*
 // ISR for read from Accelerometer address
 void accelEvent() {
   Wire.write(accelDataBuffer, ACCELBYTES);
   CLEARACCELINTERRUPT;
 }
+*/
+
 // ISR for read from Magnetometer address
 void magEvent() {
-  Wire1.write(magDataBuffer, MAGBYTES);
-  CLEARMAGINTERRUPT;
+  if (magRegMRead) {
+    Wire.write(0x10);  // Adafruit_LSM303_U driver expects to read 0x10 from this register
+  } else if (magRegMgRead) {
+    Wire.write(0x01);  // send data ready bit
+  } else {
+    Wire.write(magDataBuffer, MAGBYTES);
+    CLEARMAGINTERRUPT;
+  }
+}
+
+void magRegEvent(int howMany) {
+  char reg = Wire.read();
+      //SerialUSB.println(reg); // for debug
+  switch (reg) {
+    case LSM303_REGISTER_MAG_CRA_REG_M:
+      magRegMRead = true;
+      break;
+    case LSM303_REGISTER_MAG_SR_REG_Mg:
+      magRegMgRead = true;
+      break;
+    default:
+      break;
+  }
+  while (Wire.available()) // clear buffer if this is a write command
+  {
+    char c = Wire.read(); // receive byte as a character
+    //clear read flags because this is a write command
+    magRegMRead = false;
+    magRegMgRead = false;
+  }
+
 }
