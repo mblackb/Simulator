@@ -1,5 +1,6 @@
 import serial
 import time
+import threading
 import math
 
 
@@ -28,18 +29,22 @@ class RouterboardInterface:
             3: self.getAccelerometer,
         }
 
+        #Connect to routerboard via serial and wait 1 second. Then write a command.
         self.serial = serial.Serial(port=COMPort, baudrate=115200, timeout=5)
         time.sleep(1)
         self.serial.write('f'.encode('utf-8')) 
+
+        #Start the reporting threads, give the system a few seconds first.
+        self.GPSThreadTimer = threading.Timer(3.0, self.GPSThread).start()
+        #Will add more threading timers for each reported sensor values later
 
 
     def execute(self):
         """
         Controllers execution, checks for message in serial from router to execute
-        also sends data back to router board.
         """
 
-        #If there is a command waiting
+        #if command is waiting execute command
         if self.serial.in_waiting:
 
             #Get the command function, if it doesn't exist, will return None
@@ -53,17 +58,14 @@ class RouterboardInterface:
             #Execute the command
             command()
 
-        
-        #Send new data across, maybe limit to once a second?
-        self.getGPS()
-
 
     def destroy(self):
         """
-        Destroy the serial communication
+        Stop the thread timers and close serial communication
         """
-
+        if self.GPSThreadTimer is not None : self.GPSThreadTimer.cancel()
         self.serial.close()
+
 
     
     def actuateThrottle(self) :
@@ -120,20 +122,25 @@ class RouterboardInterface:
         IMU = self.simVehicle.IMUSensor
 
 
-    def getGPS(self):
+    def GPSThread(self):
         """
-        Function to send gps data back to router board.
+        Timed thread that runs every second to write GPS to serial
         Collects data from vehicle sensor and writes it to serial in the correct format.
         """
+
+        #Create a timed thread that calls this function every 1 seconds
+        #By calling this function again it creates another timer endlessly.
+        self.GPSThreadTimer = threading.Timer(1.0, self.GPSThread).start()
 
         #Convert the latitude and longitude to the format we need
         latString = convertDecimaltoMinutesSeconds( self.simVehicle.GNSSSensor.latitude, 'latitude')
         longString = convertDecimaltoMinutesSeconds(self.simVehicle.GNSSSensor.longitude, 'longitude')
 
-        ##Header byte is 6 for GPS, reference router.h
-        self.serial.write(6)
-        self.serial.write(latString)
-        self.serial.write(longString)
+        #Header byte is 6 for GPS, reference router.h
+        message = "6".encode() + latString.encode() + longString.encode()
+
+        #Writing is also safe as it is blocking and uses a lock!
+        self.serial.write(message)
 
 
 def mapValue(value, leftMin, leftMax, rightMin, rightMax):
