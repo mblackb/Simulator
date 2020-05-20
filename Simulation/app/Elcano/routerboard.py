@@ -131,14 +131,9 @@ class RouterboardInterface:
         longString = convertDecimaltoMinutesSeconds(self.simVehicle.GNSSSensor.longitude, 'longitude')
 
         ##Header byte is 6 for GPS, reference router.h
-        
-        
-
         self.serial.write(6)
         self.serial.write(latString)
         self.serial.write(longString)
-
-        ##dd is degrees mm.mmmm is minutes ss is seconds
 
 
 def mapValue(value, leftMin, leftMax, rightMin, rightMax):
