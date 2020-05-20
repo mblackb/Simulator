@@ -13,7 +13,7 @@ class SimulatedVehicle:
     """
 
     #Constructor for vehicle class
-    def __init__(self, world, hud):
+    def __init__(self, world):
 
         self.world = world
 
@@ -24,7 +24,6 @@ class SimulatedVehicle:
         self.throttle = 0
         self.steering = 0
         self.braking = 0
-        self.hud = hud
 
 
         #Load Carlas blueprint library
