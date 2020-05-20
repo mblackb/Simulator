@@ -30,13 +30,14 @@ import sys
 import logging
 import pygame
 import datetime
+import time
 import math
 import os
 import numpy as np
 import weakref
 
 
-#import Carla and and Sensors
+#Local imports
 import Carla
 from Carla import ColorConverter as cc
 import Elcano
@@ -57,6 +58,9 @@ def main(COMPort = 'COM14', host = 'localhost', port = 2000):
     logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
     logging.info('listening to server %s:%s', host, port)
 
+    #Initialize some important variables
+    client = None
+    controller = None
 
     try:
         #Create client object to interact with server
@@ -67,6 +71,9 @@ def main(COMPort = 'COM14', host = 'localhost', port = 2000):
         #Intend to add the option for manual control here later with a given param
         controller = Elcano.RouterboardInterface(COMPort, client.vehicle)
 
+        #Give it one second to catch up, I find without this sometimes I will run into issues
+        time.sleep(1)
+
         #Enter the main loop
         while True:
             client.clock.tick_busy_loop(60)
@@ -76,11 +83,12 @@ def main(COMPort = 'COM14', host = 'localhost', port = 2000):
 
 
     finally: 
-        #Once we are done, destroy the client
-        if client.world is not None:
+        #Once we are done, destroy the client and controller
+        if client is not None:
             client.destroy()
 
-        controller.destroy()
+        if controller is not None:
+            controller.destroy()
 
         del controller
         del client
@@ -104,6 +112,10 @@ class Client(object):
     """
 
     def __init__(self, host, port):
+        
+        #Initialize some variables
+        self.camera_manager = None
+        self.vehicle = None
 
         #Start pygame and build window and hud
         pygame.init()
@@ -120,13 +132,15 @@ class Client(object):
         #Get the world from the server
         self.world = self.client.get_world()
         self.world.on_tick(self.hud.on_world_tick)
+
+
         
 
 
     def connectToVehicle(self):
 
         #Create the vehicle
-        self.vehicle = Elcano.SimulatedVehicle(self.world, self.hud)
+        self.vehicle = Elcano.SimulatedVehicle(self.world)
 
         #Create the camera for the client
         self.camera_manager = CameraManager(self.vehicle.actor, self.world, self.hud, 2.2)
