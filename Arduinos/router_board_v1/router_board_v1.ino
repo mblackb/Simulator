@@ -11,6 +11,9 @@
 ** Data being sent to Carla is in the format:
   {Header Byte}{Data Bytes}
   The number of data bytes is determined by the type of data being sent, which is defined by the header byte.
+
+  Portions of GPS code based on information found here: https://ucexperiment.wordpress.com/2012/03/12/arduino-scripted-gps-simulator/
+
 */
 
 #include "router.h"
@@ -50,9 +53,28 @@ byte brake = 0;
 bool inBraking = false;
 bool brakeChange = false;
 
+// Accelerometer and Magnetometer buffers
 byte accelDataBuffer[ACCELBYTES];
 byte magDataBuffer[MAGBYTES];
 
+// Magnetometer flags
+bool magRegMRead;
+bool magRegMgRead;
+
+// GPS Variables
+char sec[2];
+char lat[10];
+char latdir[2];
+char lng[11];
+char lngdir[2];
+char hdg[7];
+char spd[7];
+volatile uint8_t t4 = 10;
+volatile uint8_t t3 = 30;
+volatile uint8_t t2 = 0;
+volatile uint8_t t1 = 0;
+volatile boolean _1Hz_flag = 0;
+char gprmc[96];
 
 
 //Set pins, prepare serial.
@@ -62,6 +84,20 @@ void setup() {
   Serial.begin(BAUDRATE);
   // Serial USB port used for Carla connection
   SerialUSB.begin(BAUDRATE);
+  // Serial port for GPS
+  GPSSERIAL.begin(GPSBAUD);
+
+  //GPS variables initial loading
+  _1Hz_flag = false;
+  sec[0] = '0';
+  sec[1] = '\0';
+  lat[10] = '\0';
+  latdir[1] = '\0';
+  lng[11] = '\0';
+  lngdir[1] = '\0';
+  hdg[7] = '\0';
+  spd[7] = '\0';
+
 
   // Built in built in LED for debug
   pinMode(LED_BUILTIN, OUTPUT);
@@ -74,13 +110,13 @@ void setup() {
   Timer3.attachInterrupt(sendPulse).start(2000000);
 
   // Setup I2C for accelerometer and Magnetometer
-  // Currently using SDA/SCL for accelerometer and SDA1/SCL1
-  // For Magnetometer. Need to work out how to add
-  // Gyroscope address as a valid slave address.
-  Wire.begin(ACCELADDRESS);
-  Wire.onRequest(accelEvent);
-  Wire1.begin(MAGADDRESS);       // Accelerometer and magnetometer addresses
-  Wire1.onRequest(magEvent);  // register callback function
+  // Currently only Magnetrometer is setup for heading data to high level
+  // Need to develop emulation of multiple slave addresses on single bus.
+  //Wire.begin(ACCELADDRESS);
+  //Wire.onRequest(accelEvent);
+  Wire.begin(MAGADDRESS);       // Accelerometer and magnetometer addresses
+  Wire.onRequest(magEvent);  // register callback function for sending magnetometer data
+  Wire.onReceive(magRegEvent); // Register callback for receiving commands for magnetometer
 
   // Wait until start msg from laptop
   while (SerialUSB.available() <= 0) {}
@@ -97,9 +133,7 @@ void setup() {
 
 /*
   TODO:
-  -MOVE SENSOR READS TO INTERUPT
-  -USE LOOP TO WRITE DATA TO CARLA
-  -USE LOOP TO READ DATA TO CARLA
+  - Setup Magnetometer so it can be read properly
 
 */
 void loop() {
@@ -137,8 +171,10 @@ void loop() {
     Serial.println(steering);
   }
 
+  // Receive data from Carla
   if (SerialUSB.available()) {
     volatile byte *receiveData = receiveFromCarla(1);
+    SerialUSB.println(receiveData[0]); //debug
     switch (receiveData[0]) {
       case accelCommand:
         // Get number of bytes associated with Accelerometer data
@@ -160,7 +196,30 @@ void loop() {
       case gpsCommand:
         // Get number of bytes associated with gps data
         receiveData = receiveFromCarla(GPSBYTES);
-        // TODO: ADD FUNCTION FOR GPS
+
+        uint8_t i;
+        /* No need to send different milliseconds.
+                //time
+                sec[0] = receiveData[0];
+        */
+        //latitude
+        for (i = 0; i < 9; i++)
+          lat[i] = receiveData[i];
+        latdir[0] = receiveData[9];
+        //longitude
+        for (i = 0; i < 10; i++)
+          lng[i] = receiveData[i + 10];
+        lngdir[0] = receiveData[20];
+        /* Not currently using speed or heading from GPS
+                //speed
+                for (i = 0; i < 6; i++)
+                  spd[i] = receiveData[i + 20];
+                //heading
+                for (i = 0; i < 6; i++)
+                  hdg[i] = receiveData[i + 26];
+        */
+        //Data read to send flag
+        _1Hz_flag = true;
         break;
       default:
         // if unknown code, flush serial bus data to ensure we aren't out of sync.
@@ -169,10 +228,37 @@ void loop() {
         }
         break;
     }
+
+    //Send GPS data to high level board if it is available
+    if (_1Hz_flag) {
+      IncrementTime();
+      //format $GPRMC sentence
+      // Message format is: UMT time, A, Lat, Long, Speed, Heading, Date, Magnetic variation*Checksum
+      sprintf(gprmc, "$GPRMC,%2.2u%2.2u%2.2u.000,A,%9s,%s,%10s,%s,000.0,000.0,080112,,S", t4, t3, t2, lat, latdir, lng, lngdir);
+      //calculate and add checksum
+      calcGPSCheckSum(gprmc);
+      // Send for debug
+      Serial.println(gprmc);
+      // Send GPS data to high Level
+      GPSSERIAL.println(gprmc);
+      _1Hz_flag = false;
+    }
   }
 
-
-
+//test for seeing loaded magnetometer data
+//static long test=0;
+//
+//if (test%10000==1){
+//SerialUSB.print("Mag Data: ");
+//SerialUSB.print(magDataBuffer[0]);
+//SerialUSB.print(magDataBuffer[1]);
+//SerialUSB.print(magDataBuffer[2]);
+//SerialUSB.print(magDataBuffer[3]);
+//SerialUSB.print(magDataBuffer[4]);
+//SerialUSB.println(magDataBuffer[5]);
+//}
+//
+//test++;
 
 }
 
@@ -279,6 +365,37 @@ void Blink() {
 }
 
 
+/****************************************************************
+
+                          GPS Functions
+
+ ****************************************************************/
+
+void IncrementTime() {
+
+  t2++;
+  if (t2 > 59) {
+    t2 = 0;
+    t3++;
+  }
+  if (t3 > 59) {
+    t3 = 0;
+    t4++;
+  }
+  if (t4 > 23)
+    t4 = 0;
+}
+
+void calcGPSCheckSum(char *buff)
+{
+  char cs = 0;
+  int i = 1;
+  while (buff[i]) {
+    cs ^= buff[i];
+    i++;
+  }
+  sprintf(buff, "%s*%02X", buff, cs);
+}
 
 /****************************************************************
 
@@ -286,9 +403,9 @@ void Blink() {
 
  ****************************************************************/
 
-/* THE CYCLOMETER FUNCTION NEEDS TO BE REDEFINED TO MATCH THE NEW SCOPE 
- *  Sends pulse to low level for speed calculation. Currently on random digital pin.  Has to be
- implemented for corresponding anaolog pin.*/
+/* THE CYCLOMETER FUNCTION NEEDS TO BE REDEFINED TO MATCH THE NEW SCOPE
+    Sends pulse to low level for speed calculation. Currently on random digital pin.  Has to be
+  implemented for corresponding anaolog pin.*/
 
 void sendPulse() {
   //noInterrupts();
@@ -346,13 +463,45 @@ void manageBrake () {
   brakeChange = true;
 }
 
+/*
 // ISR for read from Accelerometer address
 void accelEvent() {
   Wire.write(accelDataBuffer, ACCELBYTES);
   CLEARACCELINTERRUPT;
 }
+*/
+
 // ISR for read from Magnetometer address
 void magEvent() {
-  Wire1.write(magDataBuffer, MAGBYTES);
-  CLEARMAGINTERRUPT;
+  if (magRegMRead) {
+    Wire.write(0x10);  // Adafruit_LSM303_U driver expects to read 0x10 from this register
+  } else if (magRegMgRead) {
+    Wire.write(0x01);  // send data ready bit
+  } else {
+    Wire.write(magDataBuffer, MAGBYTES);
+    CLEARMAGINTERRUPT;
+  }
+}
+
+void magRegEvent(int howMany) {
+  char reg = Wire.read();
+      //SerialUSB.println(reg); // for debug
+  switch (reg) {
+    case LSM303_REGISTER_MAG_CRA_REG_M:
+      magRegMRead = true;
+      break;
+    case LSM303_REGISTER_MAG_SR_REG_Mg:
+      magRegMgRead = true;
+      break;
+    default:
+      break;
+  }
+  while (Wire.available()) // clear buffer if this is a write command
+  {
+    char c = Wire.read(); // receive byte as a character
+    //clear read flags because this is a write command
+    magRegMRead = false;
+    magRegMgRead = false;
+  }
+
 }
