@@ -1,5 +1,6 @@
 import serial
 import time
+import math
 
 
 
@@ -125,17 +126,18 @@ class RouterboardInterface:
         Collects data from vehicle sensor and writes it to serial in the correct format.
         """
 
-        lat = self.simVehicle.GNSSSensor.latitude
-        lon = self.simVehicle.GNSSSensor.longitude
-
-        #write the messages, need to adapt format.
-        #self.serial.write(6)
-        #self.serial.write(lat)
-        #self.serial.write(lon)
+        #Convert the latitude and longitude to the format we need
+        latString = convertDecimaltoMinutesSeconds( self.simVehicle.GNSSSensor.latitude, 'latitude')
+        longString = convertDecimaltoMinutesSeconds(self.simVehicle.GNSSSensor.longitude, 'longitude')
 
         ##Header byte is 6 for GPS, reference router.h
-        ##LAT, LONG, ALT, HH:MM:SS.sss once a second, maybe a thread?
-        ##lat[9],latdir,long[10],longdir (ddmm.mmmmN/Sdddmm.mmmmE/W) i.e: 4559.4810N12269.3800W
+        
+        
+
+        self.serial.write(6)
+        self.serial.write(latString)
+        self.serial.write(longString)
+
         ##dd is degrees mm.mmmm is minutes ss is seconds
 
 
@@ -149,3 +151,56 @@ def mapValue(value, leftMin, leftMax, rightMin, rightMax):
 
     # Convert the 0-1 range into a value in the right range.
     return rightMin + (valueScaled * rightSpan)
+
+def convertDecimaltoMinutesSeconds(val, convertType):
+    """
+    For converting degrees decimal (dd.dddd) to degrees minutes seconds lat (ddmm.ssss) long (dddmm.ssss)
+    also returns the directional, for lat N|S, for long E|W     (+|-)
+
+    Format we are looking for:
+    lat[9 bytes], latdir,  (ddmm.ssss N|S) ex: 4559.4810N
+    long[10bytes], longdir (dddmm.ssss E|W) ex: 12269.3800W
+    """
+
+    ddecimal, degrees = math.modf(val)
+    mdecimal, minutes = math.modf(ddecimal*60)
+    seconds = mdecimal*60
+
+    #Depending on whether its long or lat we determine the proper direction
+    if(convertType == 'latitude'): 
+        if degrees >= 0 : direction = "N"
+        else: direction = "S"
+
+        #Latitude always reports 2 digits
+        degreeLength = 2
+
+    elif(convertType == 'longitude'): 
+        if degrees >= 0 : direction = "E"
+        else : direction = "W"
+
+        #Longitude always reports 3 digits
+        degreeLength = 3
+    
+    #Convert to absolute value string and pad with 0's as necessary
+    degrees = str(abs(int(degrees)))
+    while(len(degrees) < degreeLength):
+        degrees = '0' + degrees
+
+    #Ensure minutes is two digits!
+    minutes = str(int(minutes))
+    while(len(minutes) < 2):
+        minutes = '0' + minutes
+
+    #Remove decimal and ensure it is 4 digits
+    seconds = str(seconds).replace('.', '')
+    if(len(seconds) < 4):
+        while(len(seconds) < 4):
+            seconds = seconds + '0'
+    else:
+        seconds = seconds[0:4]
+
+    string = degrees + minutes + '.' + seconds + direction
+
+    return string
+
+        
