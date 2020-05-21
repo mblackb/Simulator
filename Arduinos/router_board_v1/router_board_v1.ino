@@ -174,7 +174,7 @@ void loop() {
   // Receive data from Carla
   if (SerialUSB.available()) {
     volatile byte *receiveData = receiveFromCarla(1);
-    SerialUSB.println(receiveData[0]); //debug
+    Serial.println(receiveData[0]); //debug
     switch (receiveData[0]) {
       case accelCommand:
         // Get number of bytes associated with Accelerometer data
