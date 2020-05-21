@@ -117,6 +117,10 @@ class Client(object):
         self.camera_manager = None
         self.vehicle = None
 
+        #Attempt to connect to the Carla server, timeout after 5 seconds
+        self.client = Carla.Client(host, port)
+        self.client.set_timeout(5.0)
+
         #Start pygame and build window and hud
         pygame.init()
         pygame.font.init()
@@ -124,10 +128,6 @@ class Client(object):
         self.display = pygame.display.set_mode((1280, 720), pygame.HWSURFACE | pygame.DOUBLEBUF)
         self.clock = pygame.time.Clock()
         self.hud = HUD(1280,720)
-
-        #Attempt to connect to the Carla server, timeout after 5 seconds
-        self.client = Carla.Client(host, port)
-        self.client.set_timeout(5.0)
 
         #Get the world from the server
         self.world = self.client.get_world()
