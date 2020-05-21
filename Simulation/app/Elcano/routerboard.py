@@ -128,10 +128,6 @@ class RouterboardInterface:
         Collects data from vehicle sensor and writes it to serial in the correct format.
         """
 
-        #Create a timed thread that calls this function every 1 seconds
-        #By calling this function again it creates another timer endlessly.
-        self.GPSThreadTimer = threading.Timer(1.0, self.GPSThread).start()
-
         #Convert the latitude and longitude to the format we need
         latString = convertDecimaltoMinutesSeconds( self.simVehicle.GNSSSensor.latitude, 'latitude')
         longString = convertDecimaltoMinutesSeconds(self.simVehicle.GNSSSensor.longitude, 'longitude')
@@ -141,6 +137,10 @@ class RouterboardInterface:
 
         #Writing is also safe as it is blocking and uses a lock!
         self.serial.write(message)
+
+        #Create a timed thread that calls this function every 1 seconds
+        #By calling this function again it creates another timer endlessly.
+        self.GPSThreadTimer = threading.Timer(1.0, self.GPSThread).start()
 
 
 def mapValue(value, leftMin, leftMax, rightMin, rightMax):
