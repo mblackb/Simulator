@@ -133,7 +133,7 @@ class RouterboardInterface:
         longString = convertDecimaltoMinutesSeconds(self.simVehicle.GNSSSensor.longitude, 'longitude')
 
         #Header byte is 6 for GPS, reference router.h
-        message = "6".encode() + latString.encode() + longString.encode()
+        message = b'\x06' + latString.encode() + longString.encode()
 
         #Writing is also safe as it is blocking and uses a lock!
         self.serial.write(message)
