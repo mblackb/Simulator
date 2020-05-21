@@ -1,22 +1,78 @@
 import serial
 import time
+import threading
+import math
+
+
 
 class RouterboardInterface:
+    """
+    Acts as the interface the routerboard uses to communicate to Carla.
 
-    #Constructor, requires an obj for simulate
-    def __init__(self):
-        self.name = "router"
+    Reads in commands from buffer and executes them, also sends data back to router.
+
+    Accepted params:
+    COMPort - the COM port the routerboard is plugged into.
+    """
 
 
-    #Connect to the router board
-    def connectToBoard(self, COMport, baudrate, timeout):
-        self.serial = serial.Serial(port=COMport, baudrate=baudrate, timeout=timeout)
+    def __init__(self, COMPort, simVehicle):
+        self.name = "routerboard"
+        self.COMPort = COMPort
+        self.simVehicle = simVehicle
+
+        #Create command map for incoming commands from routerboard
+        self.commandMap = {
+            0: self.actuateThrottle,
+            1: self.actuateSteering,
+            2: self.actuateBraking,
+            3: self.getAccelerometer,
+        }
+
+        #Connect to routerboard via serial and wait 1 second. Then write a command.
+        self.serial = serial.Serial(port=COMPort, baudrate=115200, timeout=5)
         time.sleep(1)
         self.serial.write('f'.encode('utf-8')) 
 
+        #Start the reporting threads, give the system a few seconds first.
+        self.GPSThreadTimer = threading.Timer(3.0, self.GPSThread).start()
+        #Will add more threading timers for each reported sensor values later
+
+
+    def execute(self):
+        """
+        Controllers execution, checks for message in serial from router to execute
+        """
+
+        #if command is waiting execute command
+        if self.serial.in_waiting:
+
+            #Get the command function, if it doesn't exist, will return None
+            command = self.commandMap.get(list(self.serial.read())[0])
+
+            #If its none continue the loop looking for commands
+            #Will add some logging later to catch these errors in communication.
+            if command == None:
+                return
+            
+            #Execute the command
+            command()
+
+
+    def destroy(self):
+        """
+        Stop the thread timers and close serial communication
+        """
+        if self.GPSThreadTimer is not None : self.GPSThreadTimer.cancel()
+        self.serial.close()
+
+
     
-    #Command from router to change throttle
-    def actuateThrottle(self, simVehicle) :
+    def actuateThrottle(self) :
+        """
+        Command to update throttle on vehicle.
+        Reads in the next byte from serial to determine this value.
+        """
 
         #Get the argument from the router board and convert into a Carla value
         #Value comes in as a 8 bit unsigned int (0 to 255)
@@ -25,11 +81,14 @@ class RouterboardInterface:
 
         #Throttle : float (-1 to 1) 
         #No reverse option for now
-        simVehicle.updateThrottle(arg)
+        self.simVehicle.updateThrottle(arg)
 
 
-    #Command from router to change steering
-    def actuateSteering(self, simVehicle) :
+    def actuateSteering(self) :
+        """
+        Command to update steering on vehicle.
+        Reads in the next byte from serial to determine this value.
+        """
 
         #Get the argument from the router board and convert into a Carla value
         #Value comes in as a 8 bit signed int (-128 to 127)
@@ -37,11 +96,14 @@ class RouterboardInterface:
         carlaValue = mapValue(arg, 0, 255, -1, 1)
 
         #Steering : flaot (-1 to 1)
-        simVehicle.updateSteering(carlaValue)
+        self.simVehicle.updateSteering(carlaValue)
 
 
-    #Command from router to change braking
-    def actuateBraking(self, simVehicle) :
+    def actuateBraking(self) :
+        """
+        Command to update braking on vehicle.
+        Reads in the next byte from serial to determine this value.
+        """
 
         #Get the argument from the router board and convert into a Carla value
         #Value comes in as a 8 bit unsigned int (0 to 255)
@@ -49,35 +111,37 @@ class RouterboardInterface:
         carlaValue = mapValue(arg, 0, 255, 0, 1)
 
         #Braking : float (0 to 1)
-        simVehicle.updateBraking(carlaValue)
+        self.simVehicle.updateBraking(carlaValue)
     
 
-    def getAccelerometer (self, simVehicle):
+    def getAccelerometer (self):
 
         #EXAMPLE for sending data back to router, doesn't actually
         #do anything yet
-        self.serial.write(simVehicle.Accelerometer)
 
-    def getGPS(self, simVehicle):
-
-        lat = simVehicle.GPS.latitude
-        lon = simVehicle.GPS.longitude
-
-        #write the messages, need to adapt format.
-        self.serial.write(6)
-        self.serial.write(lat)
-        self.serial.write(lon)
-
-        ##Header byte is 6 for GPS, reference router.h
-        ##LAT, LONG, ALT, HH:MM:SS.sss once a second, maybe a thread?
-        ##lat[9],latdir,long[10],longdir (ddmm.mmmmN/Sdddmm.mmmmE/W) i.e: 4559.4810N12269.3800W
-        ##dd is degrees mm.mmmm is minutes ss is seconds
+        IMU = self.simVehicle.IMUSensor
 
 
+    def GPSThread(self):
+        """
+        Timed thread that runs every second to write GPS to serial
+        Collects data from vehicle sensor and writes it to serial in the correct format.
+        """
 
-        
+        #Convert the latitude and longitude to the format we need
+        latString = convertDecimaltoMinutesSeconds( self.simVehicle.GNSSSensor.latitude, 'latitude')
+        longString = convertDecimaltoMinutesSeconds(self.simVehicle.GNSSSensor.longitude, 'longitude')
 
-    
+        #Header byte is 6 for GPS, reference router.h
+        message = b'\x06' + latString.encode() + longString.encode()
+
+        #Writing is also safe as it is blocking and uses a lock!
+        self.serial.write(message)
+
+        #Create a timed thread that calls this function every 1 seconds
+        #By calling this function again it creates another timer endlessly.
+        self.GPSThreadTimer = threading.Timer(1.0, self.GPSThread).start()
+
 
 def mapValue(value, leftMin, leftMax, rightMin, rightMax):
     # Figure out how 'wide' each range is
@@ -89,3 +153,56 @@ def mapValue(value, leftMin, leftMax, rightMin, rightMax):
 
     # Convert the 0-1 range into a value in the right range.
     return rightMin + (valueScaled * rightSpan)
+
+def convertDecimaltoMinutesSeconds(val, convertType):
+    """
+    For converting degrees decimal (dd.dddd) to degrees minutes seconds lat (ddmm.ssss) long (dddmm.ssss)
+    also returns the directional, for lat N|S, for long E|W     (+|-)
+
+    Format we are looking for:
+    lat[9 bytes], latdir,  (ddmm.ssss N|S) ex: 4559.4810N
+    long[10bytes], longdir (dddmm.ssss E|W) ex: 12269.3800W
+    """
+
+    ddecimal, degrees = math.modf(val)
+    mdecimal, minutes = math.modf(ddecimal*60)
+    seconds = mdecimal*60
+
+    #Depending on whether its long or lat we determine the proper direction
+    if(convertType == 'latitude'): 
+        if degrees >= 0 : direction = "N"
+        else: direction = "S"
+
+        #Latitude always reports 2 digits
+        degreeLength = 2
+
+    elif(convertType == 'longitude'): 
+        if degrees >= 0 : direction = "E"
+        else : direction = "W"
+
+        #Longitude always reports 3 digits
+        degreeLength = 3
+    
+    #Convert to absolute value string and pad with 0's as necessary
+    degrees = str(abs(int(degrees)))
+    while(len(degrees) < degreeLength):
+        degrees = '0' + degrees
+
+    #Ensure minutes is two digits!
+    minutes = str(int(minutes))
+    while(len(minutes) < 2):
+        minutes = '0' + minutes
+
+    #Remove decimal and ensure it is 4 digits
+    seconds = str(seconds).replace('.', '')
+    if(len(seconds) < 4):
+        while(len(seconds) < 4):
+            seconds = seconds + '0'
+    else:
+        seconds = seconds[0:4]
+
+    string = degrees + minutes + '.' + seconds + direction
+
+    return string
+
+        

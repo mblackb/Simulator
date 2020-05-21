@@ -1,6 +1,9 @@
 import math
 import Carla
 import weakref
+import pygame
+
+
 
 class SimulatedVehicle:
     """
@@ -10,7 +13,9 @@ class SimulatedVehicle:
     """
 
     #Constructor for vehicle class
-    def __init__(self):
+    def __init__(self, world):
+
+        self.world = world
 
         #Variables related to simulated vehicle
         self.sensors = []
@@ -20,23 +25,6 @@ class SimulatedVehicle:
         self.steering = 0
         self.braking = 0
 
-    #Initialize connection to simulator and spawn vehicle
-    def connectToSim(self, host = 'localhost', port = 2000, headless = False):
-        """
-        Connects the trike to the simulator server
-
-        Accepted params:
-        host - string for server location, default localhost
-        port - int for port of server, default 2000
-        headless - boolean for a headless server, default False
-        """
-        
-        #Attempt to connect to the Carla server, timeout after 5 seconds
-        self.client = Carla.Client(host, port)
-        self.client.set_timeout(5.0)
-
-        #Get the world from the server
-        self.world = self.client.get_world()
 
         #Load Carlas blueprint library
         self.blueprint_library = self.world.get_blueprint_library()
@@ -48,28 +36,18 @@ class SimulatedVehicle:
         spawn = Carla.Transform(Carla.Location(x=34, y=7, z=1), Carla.Rotation(yaw=0))
         self.actor = self.world.spawn_actor(vehicle, spawn)
 
-        if(headless):
-            #Enable headless mode
-            settings = self.world.get_settings()
-            settings.no_rendering_mode = True
-            self.world.apply_settings(settings)
-
-        #spawn the sensors for the vehicle
-        self.spawnSensors()
-
-    #For spawning all sensors onto vehicle, add sensors here.
-    def spawnSensors(self):
-
-        #Create and add all desired sensors
-        self.sensors.append(Camera(self.world, self.actor))
-        self.sensors.append(GNSS(self.world, self.actor))
-        self.sensors.append(IMU(self.world, self.actor))
+        # Set up the sensors.
+        self.GNSSSensor = GNSSSensor(self.world, self.actor)
+        self.IMUSensor = IMUSensor(self.world, self.actor)
+        
 
 
     #For destroying the vehicle in simulator
     def destroy(self):
-        for sensor in self.sensors:
-            sensor.sensor.destroy()
+    
+        self.GNSSSensor.sensor.destroy()
+        self.IMUSensor.sensor.destroy()
+
         self.actor.destroy()
         
     def getSpeed(self):
@@ -97,19 +75,21 @@ class SimulatedVehicle:
         self.actor.apply_control(Carla.VehicleControl(throttle=self.throttle,steer=self.steering,brake=self.braking))
 
 
-        
+################################# SENSORS  #####################################
 
-############ Will move these sensors into their own import ############
-#Each sensor will likely be sublasses of greater Sensor class
-#Will be able to determine values from carla and send them to router
-#
-#Need to move sensor function from previous implementation to here.
+# ==============================================================================
+# -- GNSSSensor ----------------------------------------------------------------
+# ==============================================================================
 
-class GNSS:
+class GNSSSensor:
+    """
+    Sensor class for collecting GNSS data from Carla
+    """
+
     def __init__(self, world, actor):
 
+
         # Init default values
-        self.sensor = None
         self.latitude = 0
         self.longitude = 0
 
@@ -120,59 +100,69 @@ class GNSS:
 
         #To avoid circular ref we are going to use a weak reference.
         weak_self = weakref.ref(self)
-        self.sensor.listen(lambda event: GnssSensor._on_gnss_event(weak_self, event))
+        self.sensor.listen(lambda event: GNSSSensor._on_gnss_event(weak_self, event))
 
     #Storing the gps info on every update
     @staticmethod
     def _on_gnss_event(weak_self, event):
+        """
+        To store the GNSS data every time it changes in CARLA
+        """
+
         self = weak_self()
         if not self:
             return
+
         self.latitude = event.latitude
         self.longitude = event.longitude
         self.altitude = event.altitude
     
         
-class IMU:
+# ==============================================================================
+# -- IMUSensor -----------------------------------------------------------------
+# ==============================================================================
+
+class IMUSensor(object):
+    """
+    Sensor class for collecting IMU data from Carla
+    """
+
     def __init__(self, world, actor):
 
-        #Get sensor and spawn it onto the vehicle
-        blueprint = world.get_blueprint_library().find('sensor.other.imu')
-        transform = Carla.Transform(Carla.Location(x=0.8, z=1.7))
-        self.sensor = world.spawn_actor(blueprint, transform, actor)
+        #Default values
+        self.accelerometer = (0.0, 0.0, 0.0)
+        self.gyroscope = (0.0, 0.0, 0.0)
+        self.compass = 0.0
 
-        self.name = IMU
-
-    def updateData(self):
-        #Do the thing with the data Brandon.
-        #You got this, change values to whatever structure you need for it
-
-        self.accelerometer = 0
-        self.gyroscope = 0
-        self.compass = 0
+        # Attach the sensor to the vehicle
+        bp = world.get_blueprint_library().find('sensor.other.imu')
+        self.sensor = world.spawn_actor(bp, Carla.Transform(), attach_to=actor)
 
 
-class Camera:
-    def __init__(self, world, actor):
+        # We need to pass the lambda a weak reference to self to avoid circular
+        # reference.
+        weak_self = weakref.ref(self)
+        self.sensor.listen(lambda sensor_data: IMUSensor._IMU_callback(weak_self, sensor_data))
 
-        # Find the blueprint of the sensor.
-        blueprint = world.get_blueprint_library().find('sensor.camera.rgb')
+    @staticmethod
+    def _IMU_callback(weak_self, sensor_data):
+        """
+        To store the IMU data every time it changes in CARLA
+        """
 
-        # Modify the attributes of the blueprint to set image resolution and field of view.
-        blueprint.set_attribute('image_size_x', '720')
-        blueprint.set_attribute('image_size_y', '480')
-        blueprint.set_attribute('fov', '110')
+        self = weak_self()
+        if not self:
+            return
 
-        # Set the time in seconds between sensor captures
-        blueprint.set_attribute('sensor_tick', '1.0')
+        limits = (-99.9, 99.9)
+        self.accelerometer = (
+            max(limits[0], min(limits[1], sensor_data.accelerometer.x)),
+            max(limits[0], min(limits[1], sensor_data.accelerometer.y)),
+            max(limits[0], min(limits[1], sensor_data.accelerometer.z)))
+        self.gyroscope = (
+            max(limits[0], min(limits[1], math.degrees(sensor_data.gyroscope.x))),
+            max(limits[0], min(limits[1], math.degrees(sensor_data.gyroscope.y))),
+            max(limits[0], min(limits[1], math.degrees(sensor_data.gyroscope.z))))
+        self.compass = math.degrees(sensor_data.compass)
 
-        # Provide the position of the sensor relative to the vehicle.
-        transform = Carla.Transform(Carla.Location(x=0.8, z=1.7))
 
-
-        # Tell the world to spawn the sensor, don't forget to attach it to your vehicle actor.
-        self.sensor = world.spawn_actor(blueprint, transform, attach_to=actor)
-
-
-        
-    
