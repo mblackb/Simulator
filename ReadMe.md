@@ -79,8 +79,8 @@ Then connect each arduino and upload the respective code to each board.
    - Routerboard (./Arduino/Router_Board_v1) code to Arduino Due (Middle of Router PCB)
 
 NOTE: PORTS ARE IMPORTANT ON ROUTERBOARD DUE
-Programming port is used to upload code and debug via serial monitor
-Native port is used to communicate with CARLA
+  - Programming port is used to upload code and debug via serial monitor
+  - Native port is used to communicate with CARLA
 
 
 #### Python Requirements:
@@ -91,12 +91,12 @@ Native port is used to communicate with CARLA
 
 #### Start Simulation:
 - Make sure Carla is running either locally or somewhere accessible over the network
-- If not already, have routerboard due plugged in via programming port
+- If not already, have routerboard due plugged in via native port
 - Start Simulator UI by running start.bat (.\Simulation\start.bat)
 - By default it will populate local running Carla settings, if using a network based server enter IP and Port of Carla into the respective boxes. (i.e. 192.168.1.1, 2010)
 - For control via Elcano leave mode as Auto, to control via manual keyboard input change mode to Manual.
 - Click "Connect to CARLA"
-   - If Auto mode, it will pop up selection of COM devices, select routerboard COM to begin and press go. (Will add path selection in the future???)
+   - If Auto mode, it will pop up selection of COM devices, select routerboard native port COM to begin and press go. (Will add path selection in the future???)
    - If Manual mode, client will start with keyboard controls (WASD) 
 
 You did it!! Good job. :)
@@ -125,6 +125,5 @@ You did it!! Good job. :)
 - Low-level processing of CAN messages for ID 0x350 is faulty.  Bit shifting and produced output do not match the CAN guidelines on the wiki.  This was fixed in the low-level code included in the simulator folder but not pushed to the Elcano Github repository.
 
 ## Note:
-- Carla sensor listening was flawed at the time this was made; .stop() would not stop the sensor from executing its attached function at each tick of Carla.  Therefore speed was implemented without the use of sensors, and instead uses a command that accesses the speed only when needed.  This is the suggested method until sensors are fixed.  Certain sensors such as NMEA GPS, however, are only implementable using Carla sensors.  Additional information can be found on Carla Documentation.
 - In PowerShell, in CarlaUE4 path, run Carla as: ***Start-Process CarlaUE4 -ArgumentList “—quality-level=Low”*** to lower gpu load.
 - Headless mode can be enabled for complete removal of graphics rendering, however, visual debugging is extremely useful.
