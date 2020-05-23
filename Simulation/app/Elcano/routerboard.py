@@ -114,12 +114,15 @@ class RouterboardInterface:
         self.simVehicle.updateBraking(carlaValue)
     
 
-    def getAccelerometer (self):
+    def compassThread(self):
 
-        #EXAMPLE for sending data back to router, doesn't actually
-        #do anything yet
+        #Need to send [xhi,xlo,zhi,zlo,yhi,ylo] bytes
+        angle = self.simVehicle.IMUSensor.radiansCompass
+        dataX = math.cos(angle)*11
+        dataY = math.sin(angle)*11
 
-        IMU = self.simVehicle.IMUSensor
+        #Header for message is x05
+        message = b'\x05'
 
 
     def GPSThread(self):
