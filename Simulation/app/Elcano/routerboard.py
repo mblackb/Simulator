@@ -1,7 +1,9 @@
 import serial
 import time
 import threading
+import queue
 import math
+import time
 
 
 
@@ -23,51 +25,64 @@ class RouterboardInterface:
 
         #Create command map for incoming commands from routerboard
         self.commandMap = {
-            0: self.actuateThrottle,
-            1: self.actuateSteering,
-            2: self.actuateBraking,
-            3: self.getAccelerometer,
+            b'\00': self.actuateThrottle,
+            b'\01': self.actuateSteering,
+            b'\02': self.actuateBraking,
         }
 
         #Connect to routerboard via serial and wait 1 second. Then write a command.
         self.serial = serial.Serial(port=COMPort, baudrate=115200, timeout=5)
         time.sleep(1)
         self.serial.write('f'.encode('utf-8')) 
+        
+        #Currently running the controller, used as a flag for threads!!!
+        self.active = True
 
-        #Start the reporting threads, give the system a few seconds first.
-        self.GPSThreadTimer = threading.Timer(3.0, self.GPSThread).start()
-        #Will add more threading timers for each reported sensor values later
+        #Build a write queue and start a thread to manage it
+        self.serialWriteQueue = queue.Queue()
+        self.serialThread = threading.Thread(target=self.serialThread)
+        self.serialThread.start()
+
+        #Create the threads for reporting data and start them
+        self.GPSThread = threading.Thread(target=self.GPSThread)
+        self.compassThread = threading.Thread(target=self.compassThread)
+
+        self.GPSThread.start()
+        self.compassThread.start()
 
 
     def execute(self):
         """
         Controllers execution, checks for message in serial from router to execute
         """
-
+        
         #if command is waiting execute command
         if self.serial.in_waiting:
-
+                
             #Get the command function, if it doesn't exist, will return None
-            command = self.commandMap.get(list(self.serial.read())[0])
+            command = self.commandMap.get(self.serial.read())
 
-            #If its none continue the loop looking for commands
-            #Will add some logging later to catch these errors in communication.
-            if command == None:
-                return
-            
-            #Execute the command
-            command()
-
-
+            if command != None:
+                command()
+                
+        
     def destroy(self):
         """
         Stop the thread timers and close serial communication
         """
-        if self.GPSThreadTimer is not None : self.GPSThreadTimer.cancel()
+
+        #Set flag for threads to false
+        self.active = False
+
+        #Wait for all threads to exit
+        self.serialThread.join()
+        self.GPSThread.join()
+        self.compassThread.join()
+
+        #Close the serial
         self.serial.close()
 
 
-    
     def actuateThrottle(self) :
         """
         Command to update throttle on vehicle.
@@ -113,16 +128,23 @@ class RouterboardInterface:
         #Braking : float (0 to 1)
         self.simVehicle.updateBraking(carlaValue)
     
-
+    
     def compassThread(self):
+        while self.active:
+            #Need to send [xhi,xlo,zhi,zlo,yhi,ylo] bytes xx,zz,yy
+            angle = self.simVehicle.IMUSensor.radiansCompass
+            dataX = (int(math.cos(angle)*32767)).to_bytes(2, byteorder='big', signed ='true')
+            dataZ = b'\x00\x00'
+            dataY = (int(math.sin(angle)*32767)).to_bytes(2, byteorder='big', signed ='true')
 
-        #Need to send [xhi,xlo,zhi,zlo,yhi,ylo] bytes
-        angle = self.simVehicle.IMUSensor.radiansCompass
-        dataX = math.cos(angle)*11
-        dataY = math.sin(angle)*11
+            #Header for message is x05
+            message = b'\x05' + dataX + dataZ + dataY
 
-        #Header for message is x05
-        message = b'\x05'
+            #Write the message to the output queue
+            self.serialWriteQueue.put(message)
+
+            #Suspend the thread for 0.5 seconds
+            time.sleep(0.5)
 
 
     def GPSThread(self):
@@ -131,19 +153,36 @@ class RouterboardInterface:
         Collects data from vehicle sensor and writes it to serial in the correct format.
         """
 
-        #Convert the latitude and longitude to the format we need
-        latString = convertDecimaltoMinutesSeconds( self.simVehicle.GNSSSensor.latitude, 'latitude')
-        longString = convertDecimaltoMinutesSeconds(self.simVehicle.GNSSSensor.longitude, 'longitude')
+        while self.active:
 
-        #Header byte is 6 for GPS, reference router.h
-        message = b'\x06' + latString.encode() + longString.encode()
+            #Convert the latitude and longitude to the format we need
+            latString = convertDecimaltoMinutesSeconds(self.simVehicle.GNSSSensor.latitude, 'latitude')
+            longString = convertDecimaltoMinutesSeconds(self.simVehicle.GNSSSensor.longitude, 'longitude')
 
-        #Writing is also safe as it is blocking and uses a lock!
-        self.serial.write(message)
+            #Header byte is 6 for GPS, reference router.h
+            message = b'\x06' + latString.encode() + longString.encode()
 
-        #Create a timed thread that calls this function every 1 seconds
-        #By calling this function again it creates another timer endlessly.
-        self.GPSThreadTimer = threading.Timer(1.0, self.GPSThread).start()
+            #Write the message to the output queue
+            self.serialWriteQueue.put(message)
+
+            #Suspend thread for 1.0 seconds
+            time.sleep(1.0)
+
+
+    def serialThread(self):
+        """
+        Thread for managing the outward messages.
+        Necessary to handle all the various sensor messages
+        """
+
+        while self.active:
+
+            #Write all the messages in the queue
+            while not self.serialWriteQueue.empty():
+                self.serial.write(self.serialWriteQueue.get())
+            
+            #Once queue is empty just suspend for a short time
+            time.sleep(0.005)
 
 
 def mapValue(value, leftMin, leftMax, rightMin, rightMax):
