@@ -133,6 +133,7 @@ class IMUSensor(object):
         self.accelerometer = (0.0, 0.0, 0.0)
         self.gyroscope = (0.0, 0.0, 0.0)
         self.compass = 0.0
+        self.radiansCompass = 0.0
 
         # Attach the sensor to the vehicle
         bp = world.get_blueprint_library().find('sensor.other.imu')
@@ -164,5 +165,6 @@ class IMUSensor(object):
             max(limits[0], min(limits[1], math.degrees(sensor_data.gyroscope.y))),
             max(limits[0], min(limits[1], math.degrees(sensor_data.gyroscope.z))))
         self.compass = math.degrees(sensor_data.compass)
+        self.radiansCompass = sensor_data.compass
 
 

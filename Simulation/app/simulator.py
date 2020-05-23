@@ -45,7 +45,7 @@ from Carla import ColorConverter as cc
 import Elcano
 
 
-def main(COMPort = 'COM4', host = 'localhost', port = 2000):
+def main(COMPort = 'COM7', host = 'localhost', port = 2000):
     """
     Take in settings from form or command line, start logging, build client object
     enter control loop
@@ -92,8 +92,7 @@ def main(COMPort = 'COM4', host = 'localhost', port = 2000):
         if controller is not None:
             controller.destroy()
 
-        del controller
-        del client
+        return
         
         
 
@@ -169,7 +168,9 @@ class Client(object):
 
         #Read events from pygame window
         for event in pygame.event.get(): 
-            if event.type == pygame.QUIT: pygame.quit()
+            if event.type == pygame.QUIT: 
+                pygame.quit()
+                return
 
 
     def destroy(self):
