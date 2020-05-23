@@ -43,6 +43,7 @@ Use git in a shell to clone the repo into a directory using the options below
 OR
 Just download the repo as zip and unpack (Ensure you have the high level and low level code in the arduino dir)
 
+
 #### Option 1: clone, then update submodules (If you don't need the arduino code, just clone)
 git clone https://github.com/C-SELLERS/Simulator
 
@@ -51,6 +52,7 @@ cd .\Simulator\
 git submodule init
 
 git submodule update
+
 
 #### Option 2: Get repo and recursively get submodules
 git clone https://github.com/C-SELLERS/Simulator --recursive
@@ -70,12 +72,15 @@ Libraries needed are listed below:
 - Arduino Due Timer Interrupts by Ivan Seidel
   - [https://github.com/ivanseidel/DueTimer](https://github.com/ivanseidel/DueTimer)
   
-- Then connect each arduino and upload the respective code to each board. 
+  
+Then connect each arduino and upload the respective code to each board. 
    - HighLevel (./Arduino/HighLevel/) code to Arduino Mega (Right side of Router PCB)
    - LowLevel (./Ardunio/LowLevel/) code to Arduino Due (Left side of Router PCB)
    - Routerboard (./Arduino/Router_Board_v1) code to Arduino Due (Middle of Router PCB)
 
-NOTE: Programming port on Routerboard Due is used to upload code and communicate with the router board, native port is used to debug to serial com.
+NOTE: PORTS ARE IMPORTANT ON ROUTERBOARD DUE
+Programming port is used to upload code and debug via serial monitor
+Native port is used to communicate with CARLA
 
 
 #### Python Requirements:
