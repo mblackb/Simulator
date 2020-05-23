@@ -246,19 +246,19 @@ void loop() {
   }
 
 //test for seeing loaded magnetometer data
-//static long test=0;
-//
-//if (test%10000==1){
-//SerialUSB.print("Mag Data: ");
-//SerialUSB.print(magDataBuffer[0]);
-//SerialUSB.print(magDataBuffer[1]);
-//SerialUSB.print(magDataBuffer[2]);
-//SerialUSB.print(magDataBuffer[3]);
-//SerialUSB.print(magDataBuffer[4]);
-//SerialUSB.println(magDataBuffer[5]);
-//}
-//
-//test++;
+static long test=0;
+
+if (test%10000==1){
+Serial.print("Mag Data: ");
+Serial.print(magDataBuffer[0]);
+Serial.print(magDataBuffer[1]);
+Serial.print(magDataBuffer[2]);
+Serial.print(magDataBuffer[3]);
+Serial.print(magDataBuffer[4]);
+Serial.println(magDataBuffer[5]);
+}
+
+test++;
 
 }
 
@@ -494,6 +494,9 @@ void magRegEvent(int howMany) {
       magRegMgRead = true;
       break;
     default:
+    //if we receive something else, clear the flags
+      magRegMRead = false;
+      magRegMgRead = false;
       break;
   }
   while (Wire.available()) // clear buffer if this is a write command
