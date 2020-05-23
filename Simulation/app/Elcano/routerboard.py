@@ -10,11 +10,21 @@ import time
 class RouterboardInterface:
     """
     Acts as the interface the routerboard uses to communicate to Carla.
-
-    Reads in commands from buffer and executes them, also sends data back to router.
+    Reads in commands from buffer and executes them using these headings:
+        0x00: self.actuateThrottle,
+        0x01: self.actuateSteering,
+        0x02: self.actuateBraking,
+    
+    Also sends data back to router using these headings:
+        0x03: Accelerometer Data 
+        0x04: Gyro Data         
+        0x05: Magnetometer Data          
+        0x06: GPS Data       
+        0x07: Velocity Data      
 
     Accepted params:
     COMPort - the COM port the routerboard is plugged into.
+    simVehicle - Vehicle in carla to control and read data from
     """
 
 
@@ -40,15 +50,17 @@ class RouterboardInterface:
 
         #Build a write queue and start a thread to manage it
         self.serialWriteQueue = queue.Queue()
-        self.serialThread = threading.Thread(target=self.serialThread)
+        self.serialThread = threading.Thread(target=self.serialFeed)
         self.serialThread.start()
 
         #Create the threads for reporting data and start them
-        self.GPSThread = threading.Thread(target=self.GPSThread)
-        self.compassThread = threading.Thread(target=self.compassThread)
+        self.GPSThread = threading.Thread(target=self.GPSFeed)
+        self.compassThread = threading.Thread(target=self.compassFeed)
+        self.velocityThread = threading.Thread(target=self.velocityFeed)
 
         self.GPSThread.start()
         self.compassThread.start()
+        self.velocityThread.start()
 
 
     def execute(self):
@@ -68,7 +80,7 @@ class RouterboardInterface:
         
     def destroy(self):
         """
-        Stop the thread timers and close serial communication
+        Stop the thread and close serial communication
         """
 
         #Set flag for threads to false
@@ -78,6 +90,7 @@ class RouterboardInterface:
         self.serialThread.join()
         self.GPSThread.join()
         self.compassThread.join()
+        self.velocityThread.join()
 
         #Close the serial
         self.serial.close()
@@ -129,9 +142,16 @@ class RouterboardInterface:
         self.simVehicle.updateBraking(carlaValue)
     
     
-    def compassThread(self):
+    def compassFeed(self):
+        """
+        Thread for queuing compass data to send to routerboard
+        Collects data from vehicle sensor and queues in the correct format.
+        """
+
         while self.active:
+
             #Need to send [xhi,xlo,zhi,zlo,yhi,ylo] bytes xx,zz,yy
+            #Get data and convert it to bytes, z coordinates is 0 always
             angle = self.simVehicle.IMUSensor.radiansCompass
             dataX = (int(math.cos(angle)*32767)).to_bytes(2, byteorder='big', signed ='true')
             dataZ = b'\x00\x00'
@@ -147,10 +167,10 @@ class RouterboardInterface:
             time.sleep(0.5)
 
 
-    def GPSThread(self):
+    def GPSFeed(self):
         """
-        Timed thread that runs every second to write GPS to serial
-        Collects data from vehicle sensor and writes it to serial in the correct format.
+        Thread for queueing GPS data to send to routerboard
+        Collects data from vehicle sensor and queues in the correct format.
         """
 
         while self.active:
@@ -169,7 +189,39 @@ class RouterboardInterface:
             time.sleep(1.0)
 
 
-    def serialThread(self):
+    def velocityFeed(self):
+        """
+        Thread for queuing velocity data to send to routerboard
+        Collects data from vehicle and queues in the correct format.
+        """
+
+        while self.active:
+
+            #Get speed from sim (m/s)
+            speed = self.simVehicle.getSpeed()
+
+            if speed == 0:
+                speed = b'\xFF\xFF\xFF\xFF'
+
+            else:
+                #We want mu/pulse
+                #1.556 meters(wheel circumference) / velocity * 1000000 = microseconds / pulse
+                speed = int(1556000/speed).to_bytes(4, byteorder='big') #convert to bytes
+
+            #Header byte is 7 for velocity data
+            message = b'\x07' + speed
+
+            #Write the message to the output queue
+            self.serialWriteQueue.put(message)
+
+            #Suspend thread for 1.0 seconds
+            time.sleep(0.5)
+
+            
+
+
+
+    def serialFeed(self):
         """
         Thread for managing the outward messages.
         Necessary to handle all the various sensor messages
@@ -186,6 +238,10 @@ class RouterboardInterface:
 
 
 def mapValue(value, leftMin, leftMax, rightMin, rightMax):
+    """
+    Function for mapping a value to a range
+    """
+
     # Figure out how 'wide' each range is
     leftSpan = leftMax - leftMin
     rightSpan = rightMax - rightMin
