@@ -51,9 +51,9 @@ class SimulatedVehicle:
         self.actor.destroy()
         
     def getSpeed(self):
-        #Convert velocity into speed
+        #Convert velocity into speed (m/s)
         velocity = self.actor.get_velocity()
-        self.speed = math.sqrt(velocity.x*velocity.x + velocity.y*velocity.y+velocity.z*velocity.z)
+        self.speed = math.sqrt(velocity.x**2 + velocity.y**2+velocity.z**2)
         return self.speed
 
     def getSteeringAngle(self):
