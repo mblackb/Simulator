@@ -7,16 +7,18 @@ UW Bothell, 2020
 Advisor : Tyler Folsom
 
 Team 2019 : Zach Gale, Jonah Lim, Matthew Moscola, Francisco Navarro-Diaz
-Team 2020 : Colton Sellers, Brandon Thompson
+Team 2020 : Colton Sellers, Brandon Thompson, Mariah Files, Will Song, Launnie Ginn
 
 simulator.py
 
-Version: 1.0
+Version: 2.0
 
 The main purposes of this program are:
+    - Create client connection with display to Carla.
     - Control creation of actors within Carla.
-    - Retrieve simulated sensor data from actors and send to router board.
+    - Collect data from actor sensors and send to router board.
     - Interpret actuation data from router board and send actuation commands to Carla.
+
 
 Much of the code that prepares the simulation (spawning actors and sensors) can be found in the examples
 that come with the CARLA simulator download.
@@ -43,15 +45,15 @@ from Carla import ColorConverter as cc
 import Elcano
 
 
-def main(COMPort = 'COM14', host = 'localhost', port = 2000):
+def main(COMPort = 'COM4', host = 'localhost', port = 2000):
     """
     Take in settings from form or command line, start logging, build client object
     enter control loop
 
     Accepted Params:
-    COMPort
-    host
-    port
+    COMPort - The native port on the routerboard Due to communicate through (Default = COM14)
+    Host - IP address of the Carla server to connect to (Default = localhost)
+    Port - Port on the host to connect to (Default = 2000)
     """
 
     #Set logging level
@@ -105,10 +107,12 @@ def main(COMPort = 'COM14', host = 'localhost', port = 2000):
 
 class Client(object):
     """
-    Client owns the display hud and the vehicle
+    Client acts as the connection to Carla.
+    It owns the display, camera_manager, hud, and the vehicle
 
-    Maybe move camera manager out of vehicle as it isn't used as a sensor rather than just the
-    client window.....
+    Accepted Params:
+    Host - IP address of the Carla server to connect to (Default = localhost)
+    Port - Port on the host to connect to (Default = 2000)
     """
 
     def __init__(self, host, port):
@@ -186,6 +190,8 @@ class Client(object):
 
 
 class HUD(object):
+    
+
     def __init__(self, width, height):
         self.dim = (width, height)
         font = pygame.font.Font(pygame.font.get_default_font(), 20)
