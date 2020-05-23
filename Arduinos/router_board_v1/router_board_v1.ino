@@ -11,7 +11,7 @@
 ** Data being sent to Carla is in the format:
   {Header Byte}{Data Bytes}
   The number of data bytes is determined by the type of data being sent, which is defined by the header byte.
-
+  Baud Rate for this install is 115200
   Portions of GPS code based on information found here: https://ucexperiment.wordpress.com/2012/03/12/arduino-scripted-gps-simulator/
 
 */
