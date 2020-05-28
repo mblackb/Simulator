@@ -76,10 +76,9 @@ def main(COMPort = 'COM7', host = 'localhost', port = 2000):
         #Give it one second to catch up, I find without this sometimes I will run into issues
         time.sleep(1)
 
-        #Enter the main loop
+        #Continously render
         while True:
             client.clock.tick_busy_loop(60)
-            controller.execute()
             client.render()
 
 
