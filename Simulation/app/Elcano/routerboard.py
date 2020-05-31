@@ -100,7 +100,7 @@ class RouterboardInterface:
 
 
             #Suspend the thread for 0.5 seconds
-            time.sleep(0.5)
+            time.sleep(0.005)
                 
         
     def destroy(self):
@@ -224,7 +224,7 @@ class RouterboardInterface:
             speed = self.simVehicle.getSpeed()
 
             #If speed is 0 then just send 4 bytes of FFs
-            if speed == 0:
+            if speed < 0.001:
                 speed = b'\xFF\xFF\xFF\xFF'
 
             else:
