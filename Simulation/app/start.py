@@ -43,11 +43,8 @@ class Application(tk.Frame):
     
     def connectToCarla(self):
         if self.modeSelected.get() == 'Auto' :
-            #Popup window for selecting router port
-            popup = tk.Toplevel()
-            popup.wm_title("COM Select")
+            
 
-            tk.Label(popup, text='Select COM Port of Routerboard', bd=3).grid(row=0, column=0)
 
             #Get COM Devices and add them to a dictionary
             devices =  list(serial.tools.list_ports.comports())
@@ -55,19 +52,37 @@ class Application(tk.Frame):
             for device in devices:
                 self.deviceDict[device.description] = device.device
 
-            #Setup Combobox of Devices
-            self.portSelected = tk.StringVar()
-            box = ttk.Combobox(popup, values=list(self.deviceDict.keys()), justify="center", textvariable=self.portSelected, width=30)
-            box.grid(column=0, row=1, padx=(10), pady=(10))
-            box.current(0)
+            #If there are no devices this won't work. 
+            if len(devices) == 0:
+                #Notify the user
+                popup = tk.Toplevel()
+                popup.wm_title("!")
 
-            #Button for go
-            tk.Button(popup, text="GO", bg="grey", fg="white", command = self.startElcanoSim).grid(column=0, row=2, padx=(10), pady=(10))
+                ttk.Label(popup, text="No Devices connected, check COM Ports").grid(row=0, column=0, padx=(10), pady=(10))
+                ttk.Button(popup, text="Okay", command = popup.destroy).grid(column=0, row=1, padx=(10), pady=(10))
+
+            else:
+                #Popup window for selecting router port
+                popup = tk.Toplevel()
+                popup.wm_title("COM Select")
+
+                tk.Label(popup, text='Select COM Port of Routerboard', bd=3).grid(row=0, column=0)
+
+                #Setup Combobox of Devices
+                self.portSelected = tk.StringVar()
+                box = ttk.Combobox(popup, values=list(self.deviceDict.keys()), justify="center", textvariable=self.portSelected, width=30)
+                box.grid(column=0, row=1, padx=(10), pady=(10))
+                box.current(0)
+
+                #Button for go
+                tk.Button(popup, text="GO", bg="grey", fg="white", command = self.startElcanoSim).grid(column=0, row=2, padx=(10), pady=(10))
+        
 
 
-            
+
+                
         else :
-            manual_control.main() #Need to add passing of ip and port
+            manual_control.main(self.IPEntry.get(), int(self.portEntry.get()))
 
 
     def startElcanoSim(self):

@@ -1015,7 +1015,7 @@ def game_loop(args):
 # ==============================================================================
 
 
-def main():
+def main(host, port):
     argparser = argparse.ArgumentParser(
         description='Carla Manual Control Client')
     argparser.add_argument(
@@ -1026,12 +1026,12 @@ def main():
     argparser.add_argument(
         '--host',
         metavar='H',
-        default='127.0.0.1',
+        default=host, #Just temp hotfix
         help='IP of the host server (default: 127.0.0.1)')
     argparser.add_argument(
         '-p', '--port',
         metavar='P',
-        default=2000,
+        default=port, #Just temp hotfix
         type=int,
         help='TCP port to listen to (default: 2000)')
     argparser.add_argument(
@@ -1079,4 +1079,4 @@ def main():
 
 if __name__ == '__main__':
 
-    main()
+    main('localhost', 2000)

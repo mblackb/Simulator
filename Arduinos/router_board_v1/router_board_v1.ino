@@ -11,6 +11,9 @@
 ** Data being sent to Carla is in the format:
   {Header Byte}{Data Bytes}
   The number of data bytes is determined by the type of data being sent, which is defined by the header byte.
+
+  Portions of GPS code based on information found here: https://ucexperiment.wordpress.com/2012/03/12/arduino-scripted-gps-simulator/
+
 */
 
 #include "router.h"
@@ -22,7 +25,8 @@
 
 
 // Ensure cyclometer clicked at least once before changing its frequency
-bool clicked = false;
+bool clicked = true;
+uint32_t velocityPulseTime;
 
 
 // Used for receiving serial ascii messages
@@ -37,6 +41,7 @@ int receivedData = 0;
 volatile int pulseTime = 0;
 volatile long streerTimerStart = 0;
 byte steeringPrevious = 0;
+byte steeringdebounce = 0;
 bool inSteering = false;
 byte steering = 0;
 
@@ -50,9 +55,28 @@ byte brake = 0;
 bool inBraking = false;
 bool brakeChange = false;
 
+// Accelerometer and Magnetometer buffers
 byte accelDataBuffer[ACCELBYTES];
 byte magDataBuffer[MAGBYTES];
 
+// Magnetometer flags
+bool magRegMRead;
+bool magRegMgRead;
+
+// GPS Variables
+char sec[2];
+char lat[10];
+char latdir[2];
+char lng[11];
+char lngdir[2];
+char hdg[7];
+char spd[7];
+volatile uint8_t t4 = 10;
+volatile uint8_t t3 = 30;
+volatile uint8_t t2 = 0;
+volatile uint8_t t1 = 0;
+volatile boolean _1Hz_flag = 0;
+char gprmc[96];
 
 
 //Set pins, prepare serial.
@@ -62,25 +86,41 @@ void setup() {
   Serial.begin(BAUDRATE);
   // Serial USB port used for Carla connection
   SerialUSB.begin(BAUDRATE);
+  // Serial port for GPS
+  GPSSERIAL.begin(GPSBAUD);
+
+  //GPS variables initial loading
+  _1Hz_flag = false;
+  sec[0] = '0';
+  sec[1] = '\0';
+  lat[10] = '\0';
+  latdir[1] = '\0';
+  lng[11] = '\0';
+  lngdir[1] = '\0';
+  hdg[7] = '\0';
+  spd[7] = '\0';
+
 
   // Built in built in LED for debug
   pinMode(LED_BUILTIN, OUTPUT);
 
+
   // Set pins
   pinMode(BRAKE_PIN, INPUT);
   pinMode(STEER_PIN, INPUT);
+  pinMode(PULSE_PIN, OUTPUT);
 
   // Start cyclometer pulse with arbitrarily large value
-  Timer3.attachInterrupt(sendPulse).start(2000000);
+  Timer3.attachInterrupt(sendPulse).start(MAXPULSETIME);
 
   // Setup I2C for accelerometer and Magnetometer
-  // Currently using SDA/SCL for accelerometer and SDA1/SCL1
-  // For Magnetometer. Need to work out how to add
-  // Gyroscope address as a valid slave address.
-  Wire.begin(ACCELADDRESS);
-  Wire.onRequest(accelEvent);
-  Wire1.begin(MAGADDRESS);       // Accelerometer and magnetometer addresses
-  Wire1.onRequest(magEvent);  // register callback function
+  // Currently only Magnetrometer is setup for heading data to high level
+  // Need to develop emulation of multiple slave addresses on single bus.
+  //Wire.begin(ACCELADDRESS);
+  //Wire.onRequest(accelEvent);
+  Wire.begin(MAGADDRESS);       // Accelerometer and magnetometer addresses
+  Wire.onRequest(magEvent);  // register callback function for sending magnetometer data
+  Wire.onReceive(magRegEvent); // Register callback for receiving commands for magnetometer
 
   // Wait until start msg from laptop
   while (SerialUSB.available() <= 0) {}
@@ -97,9 +137,7 @@ void setup() {
 
 /*
   TODO:
-  -MOVE SENSOR READS TO INTERUPT
-  -USE LOOP TO WRITE DATA TO CARLA
-  -USE LOOP TO READ DATA TO CARLA
+  - Move things to own functions.
 
 */
 void loop() {
@@ -115,8 +153,10 @@ void loop() {
     if (throttle > (throttleSent + THROTTLENOISEMASK) || throttle < (throttleSent - THROTTLENOISEMASK)) {
       throttleSent = throttle;
       sendToCarla(throttleCommand, &throttleSent, THROTTLEBYTES);
+#if DEBUG
       Serial.print("Throttle: ");
       Serial.println(throttleSent);
+#endif
     }
   }
 
@@ -125,20 +165,39 @@ void loop() {
     sendToCarla(throttleCommand, &throttleSent, THROTTLEBYTES);
     sendToCarla(brakeCommand, &brake, BRAKEBYTES);
     brakeChange = false;
+#if DEBUG
     Serial.print("Brake: ");
     Serial.println(brake);
+#endif
   }
 
   // send steering data if it has been updated
   if (inSteering) {
-    sendToCarla(steerCommand, &steering, STEERBYTES);
-    inSteering = false;
-    Serial.print("Steering: ");
-    Serial.println(steering);
+    if (steeringdebounce == 0) {
+      steeringdebounce = steering;
+    } else if (steeringdebounce == steering) {
+      sendToCarla(steerCommand, &steering, STEERBYTES);
+      inSteering = false;
+#if DEBUG
+      Serial.print("Pulse Time = ");
+      Serial.println(pulseTime);
+      Serial.print("Steering: ");
+      Serial.println(steering);
+#endif
+      analogWrite(R_SENSE, ((0xFF - steering) << 2));
+      analogWrite(L_SENSE, (steering << 2));
+      steeringdebounce = 0;
+    } else {
+      steeringdebounce = 0;
+    }
   }
 
+  // Receive data from Carla
   if (SerialUSB.available()) {
     volatile byte *receiveData = receiveFromCarla(1);
+#if DEBUG
+    Serial.println(receiveData[0]); //debug
+#endif
     switch (receiveData[0]) {
       case accelCommand:
         // Get number of bytes associated with Accelerometer data
@@ -160,7 +219,39 @@ void loop() {
       case gpsCommand:
         // Get number of bytes associated with gps data
         receiveData = receiveFromCarla(GPSBYTES);
-        // TODO: ADD FUNCTION FOR GPS
+
+        uint8_t i;
+        /* No need to send different milliseconds.
+                //time
+                sec[0] = receiveData[0];
+        */
+        //latitude
+        for (i = 0; i < 9; i++)
+          lat[i] = receiveData[i];
+        latdir[0] = receiveData[9];
+        //longitude
+        for (i = 0; i < 10; i++)
+          lng[i] = receiveData[i + 10];
+        lngdir[0] = receiveData[20];
+        /* Not currently using speed or heading from GPS
+                //speed
+                for (i = 0; i < 6; i++)
+                  spd[i] = receiveData[i + 20];
+                //heading
+                for (i = 0; i < 6; i++)
+                  hdg[i] = receiveData[i + 26];
+        */
+        //Data read to send flag
+        _1Hz_flag = true;
+        break;
+      case velocitycommand:
+        // get velocity pulse timing from Carla
+        receiveData = receiveFromCarla(VELBYTES);
+        velocityPulseTime = ((receiveData[0] << 24) | (receiveData[1] << 16) | (receiveData[2] << 8) | receiveData[3]);
+#if DEBUG
+        Serial.print("Velocity Pulse Time received: ");
+        Serial.println(velocityPulseTime);
+#endif
         break;
       default:
         // if unknown code, flush serial bus data to ensure we aren't out of sync.
@@ -169,11 +260,31 @@ void loop() {
         }
         break;
     }
+
+    //Send GPS data to high level board if it is available
+    if (_1Hz_flag) {
+      IncrementTime();
+      //format $GPRMC sentence
+      // Message format is: UMT time, A, Lat, Long, Speed, Heading, Date, Magnetic variation*Checksum
+      sprintf(gprmc, "$GPRMC,%2.2u%2.2u%2.2u.000,A,%9s,%s,%10s,%s,000.0,000.0,080112,,S", t4, t3, t2, lat, latdir, lng, lngdir);
+      //calculate and add checksum
+      calcGPSCheckSum(gprmc);
+      // Send for debug
+#if DEBUG
+      Serial.println(gprmc);
+#endif
+      // Send GPS data to high Level
+      GPSSERIAL.println(gprmc);
+      _1Hz_flag = false;
+    }
   }
 
-
-
-
+  if (clicked) {
+    if (velocityPulseTime > MAXPULSETIME)
+      velocityPulseTime = MAXPULSETIME;
+    Timer3.attachInterrupt(sendPulse).start(velocityPulseTime);
+    clicked = false;
+  }
 }
 
 volatile byte * receiveFromCarla(int byteCount) {
@@ -186,66 +297,13 @@ volatile byte * receiveFromCarla(int byteCount) {
   }
   return data;
 }
-/*
-  //Receives data from the programming port.
-  void recvWithEndMarker() {
-  static byte ndx = 0;
-  char rc;
-
-  while (SerialUSB.available() > 0 && newData == false) {
-    rc = SerialUSB.read();
-
-    if (rc != END_MARKER) {
-      receivedChars[ndx] = rc;
-      ndx++;
-      if (ndx >= numChars) {
-        ndx = numChars - 1;
-      }
-
-      len = ndx;
-    }
-    else {
-      receivedChars[ndx] = '\0';  //Terminate string
-      ndx = 0;
-      newData = true;
-    }
-  }
-  }
 
 
-  //Does the appropriate action for each set of data retrieved
-  void receiveNewData(char dataType) {
-  if (newData == true) {
-    // Identify type of data, process/route data appropriately
-
-    // Data received is time (seconds) in between cyclometer pulse
-    if (dataType == 's') {
-      double waitTime = atof(receivedChars) * 1000000;  // in microseconds
-      //SerialUSB.println(waitTime);
-      if (waitTime > 0 && clicked) {
-        Timer3.attachInterrupt(sendPulse).start(waitTime);
-        clicked = false;
-      }
-    }
-
-    // Data received is nmea GPS location of trike
-    if (dataType == 'g') {
-      SerialUSB.println(receivedChars);
-      //Serial1.write(receivedChars, len);
-    }
-
-    // Clear receive buffer for new data
-    newData = false;
-    len = 0;
-    receivedData++;
-  }
-  }
-*/
 
 // Sends data to carla. Command list needs match command list on Carla side.
 // Defined in router.h as an enumeration
 void sendToCarla(carlaCommand mode, byte data[], int byteCount) {
-  //SerialUSB.write(mode);
+
   char sendData[byteCount];
   for (byte i = 0; i < byteCount; i++) {
     sendData[i] = data[i];
@@ -255,6 +313,8 @@ void sendToCarla(carlaCommand mode, byte data[], int byteCount) {
   SerialUSB.write(sendData, byteCount);
 }
 
+
+
 // Load the Accelerometer buffer from the data received from Carla.
 void loadAccelBuffer(volatile byte receiveData[]) {
   for (byte i = 0; i < ACCELBYTES; i++) {
@@ -263,6 +323,8 @@ void loadAccelBuffer(volatile byte receiveData[]) {
   // after buffer is loaded, inform high level data is ready
   SETACCELINTERRUPT;
 }
+
+
 
 //Load the Magnetometer buffer from the data received from Carla.
 void loadMagBuffer(volatile byte receiveData[]) {
@@ -279,6 +341,37 @@ void Blink() {
 }
 
 
+/****************************************************************
+
+                          GPS Functions
+
+ ****************************************************************/
+
+void IncrementTime() {
+
+  t2++;
+  if (t2 > 59) {
+    t2 = 0;
+    t3++;
+  }
+  if (t3 > 59) {
+    t3 = 0;
+    t4++;
+  }
+  if (t4 > 23)
+    t4 = 0;
+}
+
+void calcGPSCheckSum(char *buff)
+{
+  char cs = 0;
+  int i = 1;
+  while (buff[i]) {
+    cs ^= buff[i];
+    i++;
+  }
+  sprintf(buff, "%s*%02X", buff, cs);
+}
 
 /****************************************************************
 
@@ -286,9 +379,9 @@ void Blink() {
 
  ****************************************************************/
 
-/* THE CYCLOMETER FUNCTION NEEDS TO BE REDEFINED TO MATCH THE NEW SCOPE 
- *  Sends pulse to low level for speed calculation. Currently on random digital pin.  Has to be
- implemented for corresponding anaolog pin.*/
+/* THE CYCLOMETER FUNCTION NEEDS TO BE REDEFINED TO MATCH THE NEW SCOPE
+    Sends pulse to low level for speed calculation. Currently on random digital pin.  Has to be
+  implemented for corresponding anaolog pin.*/
 
 void sendPulse() {
   //noInterrupts();
@@ -306,7 +399,7 @@ void sendPulse() {
 // Measured PWM frequency from Low level board is ~490Hz, So PWM signal is between 0 and 2040 us.
 // Steering ISR, Interrupt on change.
 void manageSteering() {
-
+  //noInterrupts();
   //if the pin has gone HIGH, record the microseconds since the Arduino started up
   if (digitalRead(STEER_PIN) == HIGH)
   {
@@ -315,20 +408,20 @@ void manageSteering() {
   //otherwise, the pin has gone LOW
   else
   {
-    //only worry about this if the timer has actually started
+    //only worry about this if the timer hasn't actually started
     if (streerTimerStart != 0)
     {
       //record the pulse time
       steeringPrevious = steering; // used to check if steering has changed.
       pulseTime = ((volatile long)micros() - streerTimerStart);
-      steering = map(pulseTime, 0, 2040, -128, 127);
+      steering = map(pulseTime, 900, 1950, 0, 255);
       if (steering != steeringPrevious)
         inSteering = true;
       //restart the timer
       streerTimerStart = 0;
     }
   }
-
+  //interrupts();
 }
 
 
@@ -346,13 +439,48 @@ void manageBrake () {
   brakeChange = true;
 }
 
-// ISR for read from Accelerometer address
-void accelEvent() {
+/*
+  // ISR for read from Accelerometer address
+  void accelEvent() {
   Wire.write(accelDataBuffer, ACCELBYTES);
   CLEARACCELINTERRUPT;
-}
+  }
+*/
+
 // ISR for read from Magnetometer address
 void magEvent() {
-  Wire1.write(magDataBuffer, MAGBYTES);
-  CLEARMAGINTERRUPT;
+  if (magRegMRead) {
+    Wire.write(0x10);  // Adafruit_LSM303_U driver expects to read 0x10 from this register
+  } else if (magRegMgRead) {
+    Wire.write(0x01);  // send data ready bit
+  } else {
+    Wire.write(magDataBuffer, MAGBYTES);
+    CLEARMAGINTERRUPT;
+  }
+}
+
+// ISR for a write command from the high level board on the I2C
+void magRegEvent(int howMany) {
+  char reg = Wire.read();
+  switch (reg) {
+    case LSM303_REGISTER_MAG_CRA_REG_M:
+      magRegMRead = true;
+      break;
+    case LSM303_REGISTER_MAG_SR_REG_Mg:
+      magRegMgRead = true;
+      break;
+    default:
+      //if we receive something else, clear the flags
+      magRegMRead = false;
+      magRegMgRead = false;
+      break;
+  }
+  while (Wire.available()) // clear buffer if this is a write command
+  {
+    char c = Wire.read(); // receive byte as a character
+    //clear read flags because this is a write command
+    magRegMRead = false;
+    magRegMgRead = false;
+  }
+
 }
