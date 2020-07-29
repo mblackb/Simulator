@@ -132,7 +132,7 @@ class RouterboardInterface:
 
         #Throttle : float (-1 to 1) 
         #No reverse option for now
-        self.simVehicle.updateThrottle(arg)
+        self.simVehicle.updateThrottle(carlaValue)
 
 
     def actuateSteering(self) :
