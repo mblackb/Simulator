@@ -36,7 +36,7 @@ The following is a guide to set up the Elcano simulator.
 - 2 USB A male to USB Micro B male cables.
 - 1 USB A male to B male cable.
 - 1 computer running Carla 0.9.8 (Can run locally, for development we do this)
-- 1 computer to interface between Carla client (Our Simulation Client) and router board (Using Due Router Board Programming Port)
+- 1 computer to interface between Carla client (Our Simulation Client) and [router board](https://micro-av.com/store/ols/products/carla-bridge) (Using Due Router Board Programming Port)
 
 #### To get the Repo as well as submodules (High level and Low level code)
 Use git in a shell to clone the repo into a directory using the options below
